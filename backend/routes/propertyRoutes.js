@@ -75,6 +75,26 @@ const buildReviewStatsMap = async (propertyIds) => {
   return map;
 };
 
+const parseComparisons = (value) => {
+  if (!value) return [];
+  let parsed = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((item) => ({
+      platform: item?.platform?.trim?.() || '',
+      price: item?.price !== '' && item?.price != null ? parseFloat(item.price) : null,
+      url: item?.url?.trim?.() || ''
+    }))
+    .filter((item) => item.platform && item.price != null && !Number.isNaN(item.price));
+};
+
 // Get all properties with search, filters and optional availability check
 router.get('/', async (req, res) => {
   try {
@@ -169,7 +189,7 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
     const {
       title, description, property_type, price_per_night,
       bedrooms, bathrooms, max_guests, address, city, country,
-      latitude, longitude, amenities
+      latitude, longitude, amenities, discount_percentage, offer_title, offer_valid_till, price_comparisons
     } = req.body;
 
     // Validate required fields
@@ -190,6 +210,8 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
       }
     }
 
+    const comparisons = parseComparisons(price_comparisons);
+
     const property = await Property.create({
       host_id: req.user.id,
       title,
@@ -204,6 +226,10 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
       country,
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
+      discount_percentage: discount_percentage ? parseFloat(discount_percentage) : 0,
+      offer_title: offer_title || '',
+      offer_valid_till: offer_valid_till || null,
+      price_comparisons: comparisons,
       amenities: amenitiesArray || [],
       images
     });
@@ -234,7 +260,7 @@ router.put('/:id', authenticateToken, isHost, upload.array('images', 10), async 
     const {
       title, description, property_type, price_per_night,
       bedrooms, bathrooms, max_guests, address, city, country,
-      latitude, longitude, amenities
+      latitude, longitude, amenities, discount_percentage, offer_title, offer_valid_till, price_comparisons
     } = req.body;
 
     const newImages = req.files ? req.files.map((file) => file.filename) : [];
@@ -260,6 +286,8 @@ router.put('/:id', authenticateToken, isHost, upload.array('images', 10), async 
       }
     }
 
+    const comparisons = parseComparisons(price_comparisons);
+
     await Property.findByIdAndUpdate(req.params.id, {
       $set: {
         title: title ?? property.title,
@@ -274,6 +302,10 @@ router.put('/:id', authenticateToken, isHost, upload.array('images', 10), async 
         country: country ?? property.country,
         latitude: latitude ? parseFloat(latitude) : property.latitude,
         longitude: longitude ? parseFloat(longitude) : property.longitude,
+        discount_percentage: discount_percentage !== undefined ? parseFloat(discount_percentage || 0) : property.discount_percentage,
+        offer_title: offer_title !== undefined ? offer_title : property.offer_title,
+        offer_valid_till: offer_valid_till !== undefined ? (offer_valid_till || null) : property.offer_valid_till,
+        price_comparisons: price_comparisons !== undefined ? comparisons : property.price_comparisons,
         amenities: amenitiesVal ?? property.amenities,
         images: updatedImages
       }

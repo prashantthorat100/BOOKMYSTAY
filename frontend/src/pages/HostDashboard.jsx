@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
+  if (Array.isArray(value)) return value;
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed : [];
@@ -95,6 +96,13 @@ function HostDashboard() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const getImageUrl = (img) => {
+    if (!img) return 'https://via.placeholder.com/400x300?text=No+Image';
+    if (img.startsWith('http') || img.startsWith('data:')) return img;
+    if (img.startsWith('/uploads')) return img;
+    return `/uploads/${img}`;
   };
 
   const handleDeleteProperty = async (propertyId) => {
@@ -246,7 +254,7 @@ function HostDashboard() {
             {properties.map(property => {
               const images = parseImages(property?.images);
               const firstImage = images.length > 0 
-                ? `/uploads/${images[0]}` 
+                ? getImageUrl(images[0])
                 : 'https://via.placeholder.com/400x300?text=No+Image';
 
               return (
@@ -255,7 +263,7 @@ function HostDashboard() {
                     src={firstImage} 
                     alt={property.title}
                     className="card-image"
-                    style={{ aspectRatio: '4/3', objectFit: 'cover', borderRadius: 'var(--radius-md) var(--radius-md) 0 0', margin: '-1.5rem -1.5rem 1rem -1.5rem', width: 'calc(100% + 3rem)' }}
+                    style={{ height: '200px', width: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)' }}
                     onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'}
                   />
                   <h3 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1.1rem' }}>{property.title}</h3>

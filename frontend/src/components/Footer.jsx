@@ -3,64 +3,72 @@ import { MapPin } from 'lucide-react';
 
 function Footer() {
   return (
-    <footer style={{ background: 'var(--neutral-50)', padding: 'var(--spacing-2xl) 0 var(--spacing-md)', marginTop: 'auto', borderTop: '1px solid var(--neutral-200)' }}>
-      <div className="container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-xl)', paddingBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--neutral-200)' }}>
+    <footer style={{ backgroundColor: '#000d22', color: '#c4c6cf', width: '100%', marginTop: 'auto', position: 'relative', zIndex: 10, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem 1rem' }}>
         
-        <div>
-          <h4 style={{ marginBottom: 'var(--spacing-md)' }}>Support</h4>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Help Centre</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>AirCover</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Anti-discrimination</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Disability support</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Cancellation options</Link></li>
-          </ul>
+        {/* Top: New Footer Branding Merge */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', fontFamily: '"Manrope", sans-serif', letterSpacing: '-0.02em' }}>BOOKMYSTAY</span>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: '#adc8f6' }}>A Curated Sanctuary. Find your perfect luxury retreat.</p>
         </div>
 
-        <div>
-          <h4 style={{ marginBottom: 'var(--spacing-md)' }}>Hosting</h4>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            <li><Link to="/signup" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Host on BookMyStay</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>AirCover for Hosts</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Hosting resources</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Community forum</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Hosting responsibly</Link></li>
-          </ul>
-        </div>
+        {/* Middle: Previous Footer Links */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div>
+            <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>Support</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Help Centre</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>AirCover</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Anti-discrimination</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Cancellation options</Link></li>
+            </ul>
+          </div>
 
-        <div>
-          <h4 style={{ marginBottom: 'var(--spacing-md)' }}>BookMyStay</h4>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Newsroom</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>New features</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Careers</Link></li>
-            <li><Link to="/" style={{ color: 'var(--neutral-500)', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Investors</Link></li>
-          </ul>
-        </div>
+          <div>
+            <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>Hosting</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+              <li><Link to="/signup" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Host on BookMyStay</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>AirCover for Hosts</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Hosting resources</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Community forum</Link></li>
+            </ul>
+          </div>
 
-      </div>
-      
-      <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', paddingTop: 'var(--spacing-md)', fontSize: '0.875rem', color: 'var(--neutral-500)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <span>© 2026 BookMyStay, Inc.</span>
-          <span style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ margin: '0 0.2rem' }}>·</span> <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Terms</Link>
-            <span style={{ margin: '0 0.2rem' }}>·</span> <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Sitemap</Link>
-            <span style={{ margin: '0 0.2rem' }}>·</span> <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Privacy</Link>
-          </span>
+          <div>
+            <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>BookMyStay</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Newsroom</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>New features</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Careers</Link></li>
+              <li><Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color='#ffffff'} onMouseLeave={(e) => e.target.style.color='#c4c6cf'}>Investors</Link></li>
+            </ul>
+          </div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>
-            <MapPin size={16} /> <span style={{ textDecoration: 'underline' }}>English (IN)</span>
+        {/* Bottom: End Merge */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', paddingTop: '1rem', fontSize: '0.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <span>© 2026 BookMyStay, Inc.</span>
+            <span style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span> 
+              <Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Privacy Policy</Link>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span> 
+              <Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Terms of Service</Link>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span> 
+              <Link to="/" style={{ color: '#c4c6cf', textDecoration: 'none' }} onMouseEnter={(e) => e.target.style.textDecoration='underline'} onMouseLeave={(e) => e.target.style.textDecoration='none'}>Sitemap</Link>
+            </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>
-            <span>$</span> <span style={{ textDecoration: 'underline' }}>USD</span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem', marginLeft: '1rem' }}>
-            <span>Follow Us</span>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500, color: '#ffffff', cursor: 'pointer' }}>
+              <MapPin size={16} /> <span style={{ textDecoration: 'underline' }}>English (IN)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500, color: '#ffffff', cursor: 'pointer' }}>
+              <span>$</span> <span style={{ textDecoration: 'underline' }}>USD</span>
+            </div>
           </div>
         </div>
+
       </div>
     </footer>
   );

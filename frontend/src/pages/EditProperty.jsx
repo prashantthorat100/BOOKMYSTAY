@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import Map from '../components/Map';
+import { reverseGeocode, geocodeAddress } from '../utils/googleMaps';
 
 function EditProperty() {
   const { id } = useParams();
@@ -20,6 +22,10 @@ function EditProperty() {
     country: '',
     latitude: '',
     longitude: '',
+    discount_percentage: '',
+    offer_title: '',
+    offer_valid_till: '',
+    price_comparisons: [],
     amenities: []
   });
   const [existingImages, setExistingImages] = useState([]);
@@ -28,6 +34,7 @@ function EditProperty() {
   const [saving, setSaving] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState('');
+  const [comparisonDraft, setComparisonDraft] = useState({ platform: '', price: '', url: '' });
 
 
   const amenitiesList = [
@@ -57,6 +64,10 @@ function EditProperty() {
         country: data.country,
         latitude: (data.latitude !== undefined && data.latitude !== null) ? data.latitude : '',
         longitude: (data.longitude !== undefined && data.longitude !== null) ? data.longitude : '',
+        discount_percentage: data.discount_percentage || '',
+        offer_title: data.offer_title || '',
+        offer_valid_till: data.offer_valid_till ? new Date(data.offer_valid_till).toISOString().split('T')[0] : '',
+        price_comparisons: Array.isArray(data.price_comparisons) ? data.price_comparisons : [],
         amenities: Array.isArray(data.amenities) ? data.amenities : (typeof data.amenities === 'string' ? JSON.parse(data.amenities) : []),
       });
       
@@ -101,15 +112,35 @@ function EditProperty() {
     }
   };
 
+  const addComparison = () => {
+    if (!comparisonDraft.platform || !comparisonDraft.price) return;
+    setFormData((prev) => ({
+      ...prev,
+      price_comparisons: [
+        ...prev.price_comparisons,
+        { platform: comparisonDraft.platform.trim(), price: Number(comparisonDraft.price), url: comparisonDraft.url.trim() }
+      ]
+    }));
+    setComparisonDraft({ platform: '', price: '', url: '' });
+  };
+
+  const removeComparison = (idx) => {
+    setFormData((prev) => ({
+      ...prev,
+      price_comparisons: prev.price_comparisons.filter((_, i) => i !== idx)
+    }));
+  };
+
 
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
+      setError('Geolocation is not supported by your browser.');
       return;
     }
 
     setLocationLoading(true);
+    setError('');
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -120,35 +151,68 @@ function EditProperty() {
           longitude
         }));
 
-        // Reverse geocode with Google Geocoding API
         try {
-          const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=AIzaSyBXIQ9-geK0ai37e9eJdG-mM879QAzLXFQ`
-          );
-          const data = await res.json();
-          if (data && data.results && data.results.length > 0) {
-            const result = data.results[0];
-            const components = result.address_components || [];
-            const city = components.find(c => c.types.includes('locality'))?.long_name || '';
-            const country = components.find(c => c.types.includes('country'))?.long_name || '';
+          const locationInfo = await reverseGeocode(latitude, longitude);
+          if (locationInfo) {
             setFormData(prev => ({
               ...prev,
-              address: result.formatted_address || prev.address,
-              city: city || prev.city,
-              country: country || prev.country
+              address: locationInfo.address || prev.address,
+              city: locationInfo.city || prev.city,
+              country: locationInfo.country || prev.country
             }));
           }
         } catch (err) {
           console.error('Reverse geocoding error:', err);
+          setError('Location pinned; address autofill failed. Enter address/city/country manually.');
         }
         setLocationLoading(false);
       },
       (error) => {
         console.error('Geolocation error:', error);
         setLocationLoading(false);
-        alert('Could not detect your location. Please check your browser permissions.');
+        setError('Could not detect your location. Allow location permission in browser settings.');
       }
     );
+  };
+
+  const geocodeAddressToCoordinates = async ({ fromBlur = false } = {}) => {
+    const query = `${formData.address || ''} ${formData.city || ''} ${formData.country || ''}`.trim();
+    if (!query) {
+      if (!fromBlur) setError('Please enter an address (or city/country) first.');
+      return;
+    }
+    if (fromBlur && query.length < 12) return;
+
+    setLocationLoading(true);
+    setError('');
+    try {
+      const coords = await geocodeAddress(query);
+      if (!coords) {
+        setError('Could not find this address. Add city/country and try again.');
+        setLocationLoading(false);
+        return;
+      }
+      const plat = parseFloat(coords.lat);
+      const plng = parseFloat(coords.lng);
+      if (Number.isNaN(plat) || Number.isNaN(plng)) {
+        setError('Invalid coordinates returned for this address.');
+        setLocationLoading(false);
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        latitude: plat,
+        longitude: plng
+      }));
+      toast.success('Location found — check the map below.');
+    } catch (err) {
+      console.error('Address geocoding failed:', err);
+      if (!fromBlur) {
+        setError(err.message || 'Address lookup failed. You can still click the map to pin the location.');
+      }
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -169,6 +233,8 @@ function EditProperty() {
       // Append all form fields
       Object.keys(formData).forEach(key => {
         if (key === 'amenities') {
+          formDataToSend.append(key, JSON.stringify(formData[key]));
+        } else if (key === 'price_comparisons') {
           formDataToSend.append(key, JSON.stringify(formData[key]));
         } else if (formData[key] !== '' && formData[key] != null) {
           formDataToSend.append(key, formData[key]);
@@ -274,6 +340,79 @@ function EditProperty() {
             </div>
           </div>
 
+          <div className="grid grid-3">
+            <div className="form-group">
+              <label className="form-label">Discount %</label>
+              <input
+                type="number"
+                name="discount_percentage"
+                value={formData.discount_percentage}
+                onChange={handleChange}
+                min="0"
+                max="100"
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Offer title</label>
+              <input
+                type="text"
+                name="offer_title"
+                value={formData.offer_title}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Offer valid till</label>
+              <input
+                type="date"
+                name="offer_valid_till"
+                value={formData.offer_valid_till}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          <h3 style={{ marginTop: 'var(--spacing-xl)', marginBottom: 'var(--spacing-lg)' }}>Price Comparison (Optional)</h3>
+          <div className="grid grid-3">
+            <input
+              type="text"
+              value={comparisonDraft.platform}
+              onChange={(e) => setComparisonDraft((p) => ({ ...p, platform: e.target.value }))}
+              className="form-input"
+              placeholder="Platform"
+            />
+            <input
+              type="number"
+              value={comparisonDraft.price}
+              onChange={(e) => setComparisonDraft((p) => ({ ...p, price: e.target.value }))}
+              className="form-input"
+              placeholder="Price"
+            />
+            <input
+              type="text"
+              value={comparisonDraft.url}
+              onChange={(e) => setComparisonDraft((p) => ({ ...p, url: e.target.value }))}
+              className="form-input"
+              placeholder="Optional link"
+            />
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={addComparison} style={{ marginTop: 'var(--spacing-sm)' }}>
+            + Add comparison
+          </button>
+          {formData.price_comparisons.length > 0 && (
+            <div style={{ marginTop: 'var(--spacing-md)', display: 'grid', gap: '0.5rem' }}>
+              {formData.price_comparisons.map((c, idx) => (
+                <div key={idx} className="card" style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{c.platform}: ₹{c.price}</span>
+                  <button type="button" className="btn btn-outline" onClick={() => removeComparison(idx)}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <h3 style={{ marginTop: 'var(--spacing-xl)', marginBottom: 'var(--spacing-lg)' }}>Location</h3>
           <div className="form-group">
             <label className="form-label">Address</label>
@@ -296,17 +435,28 @@ function EditProperty() {
               >
                 {locationLoading ? '⌛ Locating...' : '📍 Use My Location'}
               </button>
+              <button
+                type="button"
+                onClick={() => geocodeAddressToCoordinates()}
+                className="btn btn-outline"
+                style={{ whiteSpace: 'nowrap' }}
+                disabled={locationLoading}
+              >
+                Find on map
+              </button>
             </div>
 
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
               <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-sm)', fontSize: '0.875rem' }}>
                 You can also click on the map to set the exact location:
               </p>
-              <div style={{ height: '300px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--neutral-200)' }}>
+              <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--neutral-200)' }}>
                 <Map 
                   latitude={formData.latitude} 
                   longitude={formData.longitude} 
-                  interactive={true}
+                  title={formData.title || 'Listing'}
+                  interactive
+                  height={300}
                   onLocationSelect={(newPos) => {
                     setFormData(prev => ({
                       ...prev,
@@ -343,6 +493,7 @@ function EditProperty() {
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
+                onBlur={() => geocodeAddressToCoordinates({ fromBlur: true })}
                 required
                 className="form-input"
               />

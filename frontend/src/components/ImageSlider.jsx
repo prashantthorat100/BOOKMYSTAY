@@ -3,6 +3,12 @@ import { useState, useEffect } from 'react';
 function ImageSlider({ images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const resolveImage = (img) => {
+    if (!img) return 'https://via.placeholder.com/1200x800?text=No+Image';
+    if (img.startsWith('http') || img.startsWith('data:')) return img;
+    if (img.startsWith('/uploads')) return img;
+    return `/uploads/${img}`;
+  };
 
   // Handle ESC key to close fullscreen
   useEffect(() => {
@@ -66,7 +72,7 @@ function ImageSlider({ images }) {
           {images.map((img, idx) => (
             <img
               key={idx}
-              src={`/uploads/${img}`}
+              src={resolveImage(img)}
               alt={`Slide ${idx}`}
               style={{
                 width: '100%',
@@ -234,7 +240,7 @@ function ImageSlider({ images }) {
           )}
 
           <img 
-            src={`/uploads/${images[currentIndex]}`}
+            src={resolveImage(images[currentIndex])}
             alt="Fullscreen preview"
             style={{
               maxWidth: '95%',

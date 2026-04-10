@@ -33,6 +33,27 @@ const hasOverlap = async (propertyId, checkIn, checkOut) => {
   return overlapping.length > 0;
 };
 
+const computeDiscountedTotal = ({ nights, pricePerNight, discountPercent, offerValidTill }) => {
+  const baseTotal = nights * pricePerNight;
+  const pct = Number(discountPercent || 0);
+  if (!(pct > 0)) {
+    return { baseTotal, discountApplied: false, discountPercent: 0, total: baseTotal };
+  }
+
+  if (offerValidTill) {
+    const until = new Date(offerValidTill);
+    if (!Number.isNaN(until.getTime())) {
+      const now = new Date();
+      if (until < now) {
+        return { baseTotal, discountApplied: false, discountPercent: 0, total: baseTotal };
+      }
+    }
+  }
+
+  const total = Math.max(0, Math.round((baseTotal * (100 - pct)) / 100));
+  return { baseTotal, discountApplied: true, discountPercent: pct, total };
+};
+
 // Create Razorpay order (amount in INR; we send paise to Razorpay)
 router.post('/create-order', authenticateToken, async (req, res) => {
   const razorpay = getRazorpay();
@@ -64,32 +85,46 @@ router.post('/create-order', authenticateToken, async (req, res) => {
     }
 
     const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-    const totalPrice = nights * property.price_per_night;
+    const pricing = computeDiscountedTotal({
+      nights,
+      pricePerNight: Number(property.price_per_night || 0),
+      discountPercent: property.discount_percentage,
+      offerValidTill: property.offer_valid_till
+    });
+
+    const totalPrice = pricing.total;
     const amountPaise = Math.round(totalPrice * 100); // INR to paise
 
     if (amountPaise < 100) {
       return res.status(400).json({ error: 'Minimum amount is ₹1' });
     }
 
+    // Razorpay receipt max length is 40 chars.
+    // 'bk_' (3) + property_id last 6 chars (6) + Date.now() (13) = 22 chars
+    const shortPropId = String(property_id).slice(-6);
     const order = await razorpay.orders.create({
       amount: amountPaise,
       currency: 'INR',
-      receipt: `book_${property_id}_${Date.now()}`
+      receipt: `bk_${shortPropId}_${Date.now()}`
     });
 
     res.json({
       orderId: order.id,
       amount: totalPrice,
+      baseAmount: pricing.baseTotal,
+      discountApplied: pricing.discountApplied,
+      discountPercent: pricing.discountPercent,
       amountPaise,
       currency: 'INR',
       nights
     });
   } catch (error) {
     console.error('Create order error:', error);
-    if (error.code === 'BAD_REQUEST_ERROR') {
-      return res.status(400).json({ error: error.description || 'Invalid request' });
+    const rzpError = error.error || error;
+    if (rzpError.code === 'BAD_REQUEST_ERROR') {
+      return res.status(400).json({ error: rzpError.description || 'Invalid request' });
     }
-    res.status(500).json({ error: 'Payment service error: ' + (error.error?.description || error.message || JSON.stringify(error)) });
+    res.status(500).json({ error: 'Payment service error: ' + (rzpError.description || rzpError.message || JSON.stringify(error)) });
   }
 });
 
@@ -134,7 +169,13 @@ router.post('/verify', authenticateToken, async (req, res) => {
     }
 
     const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-    const totalPrice = nights * property.price_per_night;
+    const pricing = computeDiscountedTotal({
+      nights,
+      pricePerNight: Number(property.price_per_night || 0),
+      discountPercent: property.discount_percentage,
+      offerValidTill: property.offer_valid_till
+    });
+    const totalPrice = pricing.total;
 
     const booking = await Booking.create({
       property_id: property._id,

@@ -11,6 +11,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import hostRoutes from './routes/hostRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 
 // Import database connection
 import { connectDB } from './config/db.js';
@@ -38,6 +39,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/host', hostRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -54,7 +56,9 @@ app.use((err, req, res, next) => {
 
 // Start server after DB connects
 const start = async () => {
-  await connectDB();
+  // Start API immediately; DB connects in background with retries.
+  // This prevents frontend proxy ECONNREFUSED spam during local DB startup.
+  connectDB().catch((e) => console.error('DB connect loop error:', e?.message || e));
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 API available at http://localhost:${PORT}/api`);

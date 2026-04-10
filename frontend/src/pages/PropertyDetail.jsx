@@ -5,6 +5,8 @@ import { differenceInCalendarDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import Map from '../components/Map';
 import ImageSlider from '../components/ImageSlider';
+import ChatBox from '../components/ChatBox';
+import { reverseGeocode } from '../utils/googleMaps';
 
 function parseJsonArray(value) {
   if (value == null || value === '') return [];
@@ -22,6 +24,8 @@ function PropertyDetail() {
   const navigate = useNavigate();
   const [property, setProperty] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingData, setBookingData] = useState({
     check_in: '',
@@ -87,6 +91,33 @@ function PropertyDetail() {
       setReviews(response.data);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const submitReview = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    try {
+      setReviewLoading(true);
+      await axios.post('/api/reviews', {
+        property_id: id,
+        rating: Number(reviewForm.rating),
+        comment: reviewForm.comment
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Review submitted');
+      setReviewForm({ rating: 5, comment: '' });
+      fetchReviews();
+      fetchProperty();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not submit review');
+    } finally {
+      setReviewLoading(false);
     }
   };
 
@@ -173,7 +204,7 @@ function PropertyDetail() {
 
   const setLocationFromHere = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
+      toast.error('Geolocation is not supported by your browser');
       return;
     }
     setLocationSetting(true);
@@ -186,25 +217,15 @@ function PropertyDetail() {
           formData.append('latitude', latitude);
           formData.append('longitude', longitude);
 
-          // Reverse geocode with Google Geocoding API
           try {
-            const geoKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-            if (!geoKey) throw new Error('Missing Google Maps API key');
-            const res = await fetch(
-              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${geoKey}`
-            );
-            const data = await res.json();
-            if (data && data.results && data.results.length > 0) {
-              const result = data.results[0];
-              const components = result.address_components || [];
-              const city = components.find(c => c.types.includes('locality'))?.long_name || '';
-              const country = components.find(c => c.types.includes('country'))?.long_name || '';
-              if (result.formatted_address) formData.append('address', result.formatted_address);
-              if (city) formData.append('city', city);
-              if (country) formData.append('country', country);
-            }
+            const locationInfo = await reverseGeocode(latitude, longitude);
+            if (locationInfo?.address) formData.append('address', locationInfo.address);
+            if (locationInfo?.city) formData.append('city', locationInfo.city);
+            if (locationInfo?.country) formData.append('country', locationInfo.country);
           } catch (geocodeErr) {
             console.error('Reverse geocoding error:', geocodeErr);
+            // Non-blocking for owners: coordinates still get saved.
+            toast('Location set. Address autofill unavailable right now.');
           }
 
           await axios.put(`/api/properties/${id}`, formData, {
@@ -215,34 +236,75 @@ function PropertyDetail() {
         } catch (err) {
           console.error(err);
           setLocationSetting(false);
-          alert('Failed to set location');
+          toast.error('Failed to set location');
         }
       },
       (error) => {
         console.error('Geolocation error:', error);
         setLocationSetting(false);
-        alert('Could not detect your location.');
+        toast.error('Could not detect your location. Please allow browser location permission.');
       }
+    );
+  };
+
+  const openDirections = () => {
+    const destLat = parseFloat(property.latitude);
+    const destLng = parseFloat(property.longitude);
+    const hasDest = !Number.isNaN(destLat) && !Number.isNaN(destLng);
+    if (!hasDest) {
+      toast.error('Property location is not set yet.');
+      return;
+    }
+
+    const openUrl = (origin) => {
+      const base = 'https://www.google.com/maps/dir/?api=1';
+      const destination = `destination=${encodeURIComponent(`${destLat},${destLng}`)}`;
+      const originParam = origin ? `&origin=${encodeURIComponent(origin)}` : '';
+      const url = `${base}${originParam}&${destination}&travelmode=driving`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    if (!navigator.geolocation) {
+      openUrl(null);
+      return;
+    }
+
+    toast.loading('Getting your location for directions...', { id: 'dir' });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        toast.dismiss('dir');
+        const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+        openUrl(origin);
+      },
+      () => {
+        toast.dismiss('dir');
+        openUrl(null);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   };
 
   // Derived booking info
   let nights = 0;
   let totalPrice = 0;
+  const discountPercent = Number(property.discount_percentage || 0);
+  const discountedPricePerNight = discountPercent > 0
+    ? Math.max(0, Math.round((property.price_per_night * (100 - discountPercent)) / 100))
+    : property.price_per_night;
   if (bookingData.check_in && bookingData.check_out && bookingData.check_out > bookingData.check_in) {
     nights = differenceInCalendarDays(
       new Date(bookingData.check_out),
       new Date(bookingData.check_in)
     );
     if (nights > 0) {
-      totalPrice = nights * property.price_per_night;
+      totalPrice = nights * discountedPricePerNight;
     }
   }
 
   return (
     <div className="container" style={{ paddingTop: 'var(--spacing-xl)', paddingBottom: 'var(--spacing-2xl)' }}>
       {/* Image Slider Gallery */}
-      <section style={{ marginBottom: 'var(--spacing-2xl)', borderRadius: 'var(--radius-lg)', height: '500px', backgroundColor: 'var(--neutral-100)', overflow: 'hidden' }}>
+      <section style={{ marginBottom: 'var(--spacing-2xl)', borderRadius: 'var(--radius-lg)', height: '380px', backgroundColor: 'var(--neutral-100)', overflow: 'hidden' }}>
         <ImageSlider images={images} />
       </section>
 
@@ -264,7 +326,32 @@ function PropertyDetail() {
           <div className="card">
             <h3>About this place</h3>
             <p>{property.description || 'No description available'}</p>
+            {(property.offer_title || discountPercent > 0) && (
+              <div style={{ marginTop: 'var(--spacing-md)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,166,153,0.12)' }}>
+                {property.offer_title && <div style={{ fontWeight: 600 }}>{property.offer_title}</div>}
+                {discountPercent > 0 && <div>{discountPercent}% OFF available</div>}
+                {property.offer_valid_till && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--neutral-500)' }}>
+                    Valid till: {new Date(property.offer_valid_till).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {Array.isArray(property.price_comparisons) && property.price_comparisons.length > 0 && (
+            <div className="card" style={{ marginTop: 'var(--spacing-lg)' }}>
+              <h3>Price comparison</h3>
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {property.price_comparisons.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{item.platform}</span>
+                    <span>₹{item.price}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {amenities.length > 0 && (
             <div className="card" style={{ marginTop: 'var(--spacing-lg)' }}>
@@ -285,19 +372,24 @@ function PropertyDetail() {
             <Map 
               latitude={property.latitude} 
               longitude={property.longitude} 
-              title={property.title} 
+              title={property.title}
+              height={380}
             />
-            {isOwner && (!property.latitude || !property.longitude) && (
-              <button 
-                type="button" 
-                onClick={setLocationFromHere}
-                className="btn btn-secondary"
-                disabled={locationSetting}
-                style={{ marginTop: 'var(--spacing-md)' }}
-              >
-                {locationSetting ? '⌛ Setting location...' : '📍 Set location using my current position'}
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-outline" onClick={openDirections}>
+                Get directions
               </button>
-            )}
+              {isOwner && (!property.latitude || !property.longitude) && (
+                <button 
+                  type="button" 
+                  onClick={setLocationFromHere}
+                  className="btn btn-secondary"
+                  disabled={locationSetting}
+                >
+                  {locationSetting ? '⌛ Setting location...' : '📍 Set location using my current position'}
+                </button>
+              )}
+            </div>
             <p style={{ marginTop: 'var(--spacing-sm)', color: 'var(--neutral-400)', fontSize: '0.875rem' }}>
               {property.address || ''} {property.city}, {property.country}
             </p>
@@ -306,6 +398,37 @@ function PropertyDetail() {
           {/* Reviews */}
           <div style={{ marginTop: 'var(--spacing-xl)' }}>
             <h3 style={{ marginBottom: 'var(--spacing-lg)' }}>Reviews</h3>
+            {currentUser && !isOwner && (
+              <form onSubmit={submitReview} className="card" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                <h4 style={{ marginBottom: 'var(--spacing-sm)' }}>Share your experience</h4>
+                <div className="form-group">
+                  <label className="form-label">Rating</label>
+                  <select
+                    className="form-select"
+                    value={reviewForm.rating}
+                    onChange={(e) => setReviewForm((p) => ({ ...p, rating: e.target.value }))}
+                  >
+                    <option value={5}>5 - Excellent</option>
+                    <option value={4}>4 - Very good</option>
+                    <option value={3}>3 - Good</option>
+                    <option value={2}>2 - Poor</option>
+                    <option value={1}>1 - Very poor</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Comment</label>
+                  <textarea
+                    className="form-textarea"
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm((p) => ({ ...p, comment: e.target.value }))}
+                    placeholder="How was your stay?"
+                  />
+                </div>
+                <button className="btn btn-primary" type="submit" disabled={reviewLoading}>
+                  {reviewLoading ? 'Submitting...' : 'Submit review'}
+                </button>
+              </form>
+            )}
             {reviews.length === 0 ? (
               <p>No reviews yet</p>
             ) : (
@@ -331,9 +454,18 @@ function PropertyDetail() {
         <div style={{ position: 'sticky', top: '100px' }}>
           <div className="card">
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-                ₹{property.price_per_night}
-              </span>
+              {discountPercent > 0 ? (
+                <div>
+                  <span style={{ fontSize: '1rem', color: 'var(--neutral-400)', textDecoration: 'line-through', marginRight: '0.5rem' }}>
+                    ₹{property.price_per_night}
+                  </span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>₹{discountedPricePerNight}</span>
+                </div>
+              ) : (
+                <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+                  ₹{property.price_per_night}
+                </span>
+              )}
               <span style={{ color: 'var(--neutral-400)' }}> / night</span>
             </div>
 
@@ -410,7 +542,7 @@ function PropertyDetail() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                     <span>
-                      ₹{property.price_per_night} × {nights} night{nights > 1 ? 's' : ''}
+                      ₹{discountedPricePerNight} × {nights} night{nights > 1 ? 's' : ''}
                     </span>
                     <span>₹{totalPrice}</span>
                   </div>
@@ -436,6 +568,16 @@ function PropertyDetail() {
               Pay securely with Razorpay to confirm your booking
             </p>
           </div>
+
+          {/* Chat Feature for Guest */}
+          {currentUser && !isOwner && (
+            <ChatBox 
+              propertyId={id} 
+              hostId={property.host_id} 
+              hostName={property.host_name}
+              currentUserId={currentUser.id} 
+            />
+          )}
         </div>
       </div>
     </div>

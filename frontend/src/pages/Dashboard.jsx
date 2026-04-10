@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
+  if (Array.isArray(value)) return value;
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed : [];
@@ -91,7 +92,13 @@ function Dashboard() {
               : 'https://via.placeholder.com/400x300?text=No+Image';
 
             return (
-              <div key={booking.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div 
+                key={booking.id} 
+                onClick={() => navigate(`/property/${booking.property_id}`)}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer', transition: 'transform 0.2s', padding: '0.5rem', borderRadius: 'var(--radius-lg)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.background = 'var(--neutral-50)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'transparent' }}
+              >
                 <div style={{ width: '100%', aspectRatio: '1.5 / 1', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
                   <img 
                     src={firstImage} 
@@ -101,17 +108,19 @@ function Dashboard() {
                   />
                 </div>
                 
-                <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--neutral-600)', margin: '0 0 0.25rem 0' }}>{booking.city}</h3>
-                  <p style={{ color: 'var(--neutral-400)', fontSize: '0.9rem', margin: '0 0 0.25rem 0' }}>
-                    Hosted by {booking.host_name || 'Host'}
+                <div style={{ padding: '0 0.25rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--neutral-800)', margin: '0 0 0.25rem 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {booking.title || booking.city}
+                  </h3>
+                  <p style={{ color: 'var(--neutral-500)', fontSize: '0.9rem', margin: '0 0 0.25rem 0' }}>
+                    {booking.city}, Hosted by <span style={{ fontWeight: 500, color: 'var(--neutral-600)' }}>{booking.host_name || 'Host'}</span>
                   </p>
                   <p style={{ color: 'var(--neutral-400)', fontSize: '0.9rem', margin: '0 0 0.25rem 0' }}>
                     {new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--neutral-600)' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--neutral-800)' }}>
                       ₹{booking.total_price}
                     </span>
                     <span className={getStatusBadge(booking.status)} style={{ fontSize: '0.75rem' }}>
@@ -121,7 +130,7 @@ function Dashboard() {
 
                   {booking.status === 'confirmed' && (
                     <button 
-                      onClick={() => handleCancelBooking(booking.id)}
+                      onClick={(e) => { e.stopPropagation(); handleCancelBooking(booking.id); }}
                       className="btn btn-outline"
                       style={{ marginTop: '0.75rem', width: '100%', borderColor: 'var(--error)', color: 'var(--error)', padding: '0.5rem' }}
                     >

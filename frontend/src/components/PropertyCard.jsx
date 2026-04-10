@@ -16,9 +16,22 @@ function parseImages(value) {
 const PropertyCard = ({ property }) => {
   const [isHovered, setIsHovered] = useState(false);
   const images = parseImages(property?.images);
+  const getImageUrl = (img) => {
+    if (!img) return 'https://via.placeholder.com/400x400?text=No+Image';
+    if (img.startsWith('http') || img.startsWith('data:')) return img;
+    if (img.startsWith('/uploads')) return img;
+    return `/uploads/${img}`;
+  };
+
+  const discountPercent = Number(property?.discount_percentage || 0);
+  const hasOffer = Boolean(property?.offer_title) || discountPercent > 0;
+  const discountedPricePerNight =
+    discountPercent > 0
+      ? Math.max(0, Math.round((Number(property?.price_per_night || 0) * (100 - discountPercent)) / 100))
+      : Number(property?.price_per_night || 0);
 
   const rating = property.avg_rating ? parseFloat(property.avg_rating).toFixed(2) : 'New';
-  const firstImage = images.length > 0 ? `/uploads/${images[0]}` : 'https://via.placeholder.com/400x400?text=No+Image';
+  const firstImage = images.length > 0 ? getImageUrl(images[0]) : 'https://via.placeholder.com/400x400?text=No+Image';
 
   return (
     <div 
@@ -44,6 +57,55 @@ const PropertyCard = ({ property }) => {
               e.target.src = 'https://via.placeholder.com/400x400?text=No+Image';
             }}
           />
+
+          {hasOffer && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '12px',
+                bottom: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                zIndex: 5
+              }}
+            >
+              {property.offer_title && (
+                <span
+                  style={{
+                    background: 'rgba(0,0,0,0.72)',
+                    color: 'white',
+                    padding: '6px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    maxWidth: '260px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                  title={property.offer_title}
+                >
+                  {property.offer_title}
+                </span>
+              )}
+              {discountPercent > 0 && (
+                <span
+                  style={{
+                    background: 'var(--primary)',
+                    color: 'white',
+                    padding: '6px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    width: 'fit-content'
+                  }}
+                >
+                  {discountPercent}% OFF
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content Box */}
@@ -67,7 +129,19 @@ const PropertyCard = ({ property }) => {
           </p>
           
           <div style={{ marginTop: '0.25rem', fontSize: '1rem', color: 'var(--neutral-600)' }}>
-            <span style={{ fontWeight: 600 }}>₹{property.price_per_night}</span> <span style={{ fontWeight: 400 }}>night</span>
+            {discountPercent > 0 ? (
+              <>
+                <span style={{ fontWeight: 700 }}>₹{discountedPricePerNight}</span>{' '}
+                <span style={{ fontWeight: 400, color: 'var(--neutral-400)', textDecoration: 'line-through', marginLeft: '0.35rem' }}>
+                  ₹{property.price_per_night}
+                </span>{' '}
+                <span style={{ fontWeight: 400 }}>night</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontWeight: 600 }}>₹{property.price_per_night}</span> <span style={{ fontWeight: 400 }}>night</span>
+              </>
+            )}
           </div>
         </div>
       </Link>

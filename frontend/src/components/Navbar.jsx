@@ -1,11 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { Search, Globe, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Globe, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard, MessageCircle } from 'lucide-react';
 
 function Navbar() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
 
   const readUserFromStorage = () => {
@@ -28,6 +29,32 @@ function Navbar() {
     window.addEventListener('auth-change', readUserFromStorage);
     return () => window.removeEventListener('auth-change', readUserFromStorage);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const fetchUnreadCount = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch('/api/messages/unread-count', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setUnreadCount(Number(data.count) || 0);
+      } catch {
+        // silent fail to keep navbar lightweight
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 5000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -104,6 +131,40 @@ function Navbar() {
             </Link>
           )}
 
+          {user && (
+            <div 
+              onClick={() => navigate('/inbox')}
+              title="Inbox"
+              style={{ padding: '0.75rem', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.2s', position: 'relative' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-50)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <MessageCircle size={20} color="var(--neutral-600)" />
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    minWidth: '18px',
+                    height: '18px',
+                    borderRadius: '999px',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                    fontWeight: 700
+                  }}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+          )}
+
           <div 
             style={{ padding: '0.75rem', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.2s' }}
             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-50)'}
@@ -166,6 +227,9 @@ function Navbar() {
                         <Link to="/host/dashboard" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
                           <LayoutDashboard size={18} /> Host Dashboard
                         </Link>
+                        <Link to="/my-bookings" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
+                          <LayoutDashboard size={18} /> My Bookings
+                        </Link>
                         <Link to="/host/add-property" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
                           <Building size={18} /> Add Property
                         </Link>
@@ -174,6 +238,9 @@ function Navbar() {
                       <>
                         <Link to="/dashboard" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
                           <LayoutDashboard size={18} /> Trips
+                        </Link>
+                        <Link to="/my-bookings" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
+                          <LayoutDashboard size={18} /> My Bookings
                         </Link>
                       </>
                     )}

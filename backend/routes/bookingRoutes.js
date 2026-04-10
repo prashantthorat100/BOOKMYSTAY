@@ -80,12 +80,17 @@ router.post('/', authenticateToken, async (req, res) => {
 router.get('/user', authenticateToken, async (req, res) => {
   try {
     const bookings = await Booking.find({ guest_id: req.user.id })
-      .populate({ path: 'property_id', select: 'title city country images price_per_night' })
+      .populate({ 
+        path: 'property_id', 
+        select: 'title city country address latitude longitude images price_per_night host_id',
+        populate: { path: 'host_id', select: 'name' }
+      })
       .sort({ created_at: -1 })
       .lean({ virtuals: true });
 
     const response = bookings.map((b) => {
       const property = b.property_id || {};
+      const hostName = property.host_id?.name || 'Host';
       const base = { ...b };
       delete base.property_id;
       return {
@@ -95,8 +100,12 @@ router.get('/user', authenticateToken, async (req, res) => {
         title: property.title,
         city: property.city,
         country: property.country,
+        address: property.address,
+        latitude: property.latitude,
+        longitude: property.longitude,
         images: property.images,
-        price_per_night: property.price_per_night
+        price_per_night: property.price_per_night,
+        host_name: hostName
       };
     });
 
@@ -118,7 +127,7 @@ router.get('/host', authenticateToken, async (req, res) => {
     }
 
     const bookings = await Booking.find({ property_id: { $in: hostPropertyIds } })
-      .populate({ path: 'property_id', select: 'title' })
+      .populate({ path: 'property_id', select: 'title city country address latitude longitude images' })
       .populate({ path: 'guest_id', select: 'name email' })
       .sort({ created_at: -1 })
       .lean({ virtuals: true });
@@ -133,6 +142,12 @@ router.get('/host', authenticateToken, async (req, res) => {
         ...base,
         property_id: property._id ? property._id.toString() : null,
         title: property.title,
+        city: property.city,
+        country: property.country,
+        address: property.address,
+        latitude: property.latitude,
+        longitude: property.longitude,
+        images: property.images,
         guest_id: guest._id ? guest._id.toString() : null,
         guest_name: guest.name,
         guest_email: guest.email

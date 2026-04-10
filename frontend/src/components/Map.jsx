@@ -1,176 +1,245 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { loadGoogleMaps, hasGoogleMapsAuthFailed } from '../utils/googleMaps';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const DEFAULT_CENTER = { lat: 20.5937, lng: 78.9629 };
 
-let authFailedGlobal = false;
-window.gm_authFailure = () => {
-  authFailedGlobal = true;
-  window.dispatchEvent(new Event('gm_authFailure'));
-};
-
-// Load Google Maps script once
-let googleMapsPromise = null;
-function loadGoogleMaps() {
-  if (googleMapsPromise) return googleMapsPromise;
-  if (window.google && window.google.maps) {
-    googleMapsPromise = Promise.resolve(window.google.maps);
-    return googleMapsPromise;
-  }
-  if (!GOOGLE_MAPS_API_KEY) {
-    console.error('Missing Google Maps API key. Set VITE_GOOGLE_MAPS_API_KEY in your frontend .env file.');
-    return Promise.reject(new Error('Google Maps API key missing'));
-  }
-
-  googleMapsPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=marker`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve(window.google.maps);
-    script.onerror = (err) => reject(err);
-    document.head.appendChild(script);
-  });
-  return googleMapsPromise;
-}
-
-const Map = ({ latitude, longitude, title, interactive = false, onLocationSelect }) => {
+/**
+ * @param {number|string} latitude
+ * @param {number|string} longitude
+ * @param {string} [title]
+ * @param {boolean} [interactive] — click / drag to set location
+ * @param {(pos: { lat: number, lng: number }) => void} [onLocationSelect]
+ * @param {number|string} [height] — CSS px height for the map container
+ */
+const Map = ({
+  latitude,
+  longitude,
+  title,
+  interactive = false,
+  onLocationSelect,
+  height = 400
+}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  const [authError, setAuthError] = useState(authFailedGlobal);
+  const lastCenterRef = useRef({ lat: null, lng: null });
+  const [authError, setAuthError] = useState(hasGoogleMapsAuthFailed());
+  const [mapError, setMapError] = useState('');
+  const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
 
-  const isValidCoords = (latitude !== undefined && latitude !== null && latitude !== '') &&
-                        (longitude !== undefined && longitude !== null && longitude !== '');
+  const isValidCoords =
+    latitude !== undefined &&
+    latitude !== null &&
+    latitude !== '' &&
+    longitude !== undefined &&
+    longitude !== null &&
+    longitude !== '';
 
   const lat = isValidCoords ? parseFloat(latitude) : null;
   const lng = isValidCoords ? parseFloat(longitude) : null;
-  const validParsed = lat != null && lng != null && !isNaN(lat) && !isNaN(lng);
+  const validParsed = lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng);
 
-  // Listen for Google Maps auth failures globally
+  const onLocationSelectRef = useRef(onLocationSelect);
+  useEffect(() => {
+    onLocationSelectRef.current = onLocationSelect;
+  }, [onLocationSelect]);
+
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
   useEffect(() => {
     const handleAuthFail = () => setAuthError(true);
     window.addEventListener('gm_authFailure', handleAuthFail);
     return () => window.removeEventListener('gm_authFailure', handleAuthFail);
   }, []);
 
-  // Stable callback ref so the map event listener always sees the latest fn
-  const onLocationSelectRef = useRef(onLocationSelect);
-  useEffect(() => { onLocationSelectRef.current = onLocationSelect; }, [onLocationSelect]);
+  const heightPx = typeof height === 'number' ? `${height}px` : height;
 
-  // Initialize map
   useEffect(() => {
-    if (!validParsed || authError) return;
+    if (authError) return;
+
     let cancelled = false;
 
-    loadGoogleMaps().then((maps) => {
-      if (cancelled || !mapContainerRef.current || authFailedGlobal) return;
+    loadGoogleMaps(['marker'])
+      .then((maps) => {
+        if (cancelled || !mapContainerRef.current || hasGoogleMapsAuthFailed()) return;
 
-      const center = { lat, lng };
+        setMapError('');
 
-      // Create map only once
-      if (!mapRef.current) {
-        mapRef.current = new maps.Map(mapContainerRef.current, {
-          center,
-          zoom: interactive ? 13 : 15,
-          disableDefaultUI: false,
-          gestureHandling: 'greedy',
-        });
+        const center = validParsed ? { lat, lng } : DEFAULT_CENTER;
 
-        // Click to select location in interactive mode
-        if (interactive) {
-          mapRef.current.addListener('click', (e) => {
-            if (onLocationSelectRef.current) {
-              onLocationSelectRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-            }
+        const centerMoved =
+          validParsed &&
+          (lastCenterRef.current.lat == null ||
+            lastCenterRef.current.lng == null ||
+            Math.abs(lastCenterRef.current.lat - lat) > 1e-6 ||
+            Math.abs(lastCenterRef.current.lng - lng) > 1e-6);
+
+        if (!mapRef.current) {
+          mapRef.current = new maps.Map(mapContainerRef.current, {
+            center,
+            zoom: validParsed ? (interactive ? 15 : 15) : 5,
+            disableDefaultUI: false,
+            mapTypeControl: true,
+            streetViewControl: interactive,
+            fullscreenControl: true,
+            gestureHandling: 'greedy'
           });
+
+          if (interactive) {
+            mapRef.current.addListener('click', (e) => {
+              const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+              if (!markerRef.current) {
+                markerRef.current = new maps.Marker({
+                  position: pos,
+                  map: mapRef.current,
+                  title: titleRef.current || 'Property Location',
+                  draggable: true
+                });
+                markerRef.current.addListener('dragend', () => {
+                  const p = markerRef.current.getPosition();
+                  onLocationSelectRef.current?.({ lat: p.lat(), lng: p.lng() });
+                });
+              } else {
+                markerRef.current.setPosition(pos);
+              }
+              onLocationSelectRef.current?.(pos);
+            });
+          }
+          lastCenterRef.current = validParsed ? { lat, lng } : { lat: null, lng: null };
+        } else if (validParsed) {
+          mapRef.current.panTo(center);
+          if (centerMoved) {
+            mapRef.current.setZoom(15);
+          }
+          lastCenterRef.current = { lat, lng };
+        } else {
+          lastCenterRef.current = { lat: null, lng: null };
+          mapRef.current.panTo(DEFAULT_CENTER);
+          mapRef.current.setZoom(5);
         }
-      }
 
-      // Create / update marker
-      if (!markerRef.current) {
-        markerRef.current = new maps.Marker({
-          position: center,
-          map: mapRef.current,
-          title: title || 'Property Location',
-          draggable: interactive,
-        });
-
-        if (interactive) {
-          markerRef.current.addListener('dragend', () => {
-            const pos = markerRef.current.getPosition();
-            if (onLocationSelectRef.current) {
-              onLocationSelectRef.current({ lat: pos.lat(), lng: pos.lng() });
-            }
-          });
+        if (!interactive && validParsed) {
+          if (!markerRef.current) {
+            markerRef.current = new maps.Marker({
+              position: center,
+              map: mapRef.current,
+              title: title || 'Property Location',
+              draggable: false
+            });
+          } else {
+            markerRef.current.setPosition(center);
+            markerRef.current.setMap(mapRef.current);
+            markerRef.current.setDraggable(false);
+          }
+        } else if (interactive && validParsed) {
+          if (!markerRef.current) {
+            markerRef.current = new maps.Marker({
+              position: center,
+              map: mapRef.current,
+              title: title || 'Property Location',
+              draggable: true
+            });
+            markerRef.current.addListener('dragend', () => {
+              const p = markerRef.current.getPosition();
+              onLocationSelectRef.current?.({ lat: p.lat(), lng: p.lng() });
+            });
+          } else {
+            markerRef.current.setPosition(center);
+            markerRef.current.setMap(mapRef.current);
+            markerRef.current.setDraggable(true);
+          }
+        } else if (markerRef.current && !validParsed) {
+          markerRef.current.setMap(null);
+          markerRef.current = null;
         }
-      } else {
-        markerRef.current.setPosition(center);
-      }
 
-      mapRef.current.panTo(center);
-    }).catch((err) => {
-      console.error('Failed to load Google Maps:', err);
-    });
+        if (markerRef.current && (title || titleRef.current)) {
+          markerRef.current.setTitle(title || titleRef.current || 'Property Location');
+        }
 
-    return () => { cancelled = true; };
-  }, [lat, lng, validParsed, interactive, title, authError]);
+        if (mapRef.current && window.google?.maps?.event) {
+          window.google.maps.event.trigger(mapRef.current, 'resize');
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load Google Maps:', err);
+        setMapError(err.message || 'Google Maps failed to load. Check API key, billing, and referrer restrictions.');
+      });
 
-  // Cleanup on unmount
-  useEffect(() => {
     return () => {
-      if (markerRef.current) {
-        markerRef.current.setMap(null);
-        markerRef.current = null;
-      }
-      mapRef.current = null;
+      cancelled = true;
     };
-  }, []);
+  }, [lat, lng, validParsed, interactive, title, authError, mapLoadAttempt]);
 
-  if (authError) {
-    return (
-      <div style={{
-        width: '100%', height: '400px', background: 'var(--neutral-100)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 'var(--radius-lg)', color: 'var(--neutral-500)', border: '1px dashed var(--neutral-300)',
-        padding: 'var(--spacing-lg)', textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)' }}>🗺️</div>
-        <div style={{ fontWeight: '600', color: 'var(--error)' }}>Map unavailable</div>
-        <div style={{ fontSize: '0.875rem', marginTop: 'var(--spacing-xs)', color: 'var(--neutral-600)' }}>
-          The provided Google Maps API Key is invalid or missing billing details.
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (authError) return;
+    const el = mapContainerRef.current;
+    if (!el || !window.google?.maps?.event) return;
 
-  if (!validParsed) {
-    return (
-      <div style={{
-        width: '100%', height: '400px', background: 'var(--neutral-100)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 'var(--radius-lg)', color: 'var(--neutral-500)', border: '1px dashed var(--neutral-300)',
-        padding: 'var(--spacing-lg)', textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)' }}>📍</div>
-        <div>No location coordinates available for this property.</div>
-        <div style={{ fontSize: '0.8rem', marginTop: 'var(--spacing-xs)' }}>
-          Edit this property to select a location on the map.
-        </div>
-      </div>
-    );
-  }
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) {
+        window.google.maps.event.trigger(mapRef.current, 'resize');
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [authError, heightPx, lat, lng, validParsed, mapLoadAttempt]);
+
+  const showErrorOverlay = authError || Boolean(mapError);
 
   return (
     <div
-      ref={mapContainerRef}
       style={{
+        position: 'relative',
         width: '100%',
-        height: '400px',
+        height: heightPx,
         borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
-        boxShadow: 'var(--shadow-md)',
+        boxShadow: 'var(--shadow-md)'
       }}
-    />
+    >
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+      {showErrorOverlay && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'var(--neutral-100)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--neutral-500)',
+            border: '1px dashed var(--neutral-300)',
+            padding: 'var(--spacing-lg)',
+            textAlign: 'center',
+            zIndex: 2
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)' }}>🗺️</div>
+          <div style={{ fontWeight: 600, color: 'var(--error)' }}>Map unavailable</div>
+          <div style={{ fontSize: '0.875rem', marginTop: 'var(--spacing-xs)' }}>
+            {mapError || 'Google Maps authorization failed for this key.'}
+          </div>
+          {!authError && mapError && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ marginTop: 'var(--spacing-md)' }}
+              onClick={() => {
+                setMapError('');
+                setMapLoadAttempt((a) => a + 1);
+              }}
+            >
+              Retry loading map
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
