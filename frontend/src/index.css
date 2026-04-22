@@ -453,3 +453,70 @@ a:hover {
     gap: var(--spacing-sm);
   }
 }
+
+/* Comparison Link */
+.comparison-link {
+  color: var(--primary);
+  transition: color 0.2s ease;
+}
+.comparison-link:hover {
+  color: #0066cc !important;
+}
+
+/* Complete Mobile Responsiveness Overrides */
+@media (max-width: 768px) {
+  /* Ensure inline grid column spans fall back to single column */
+  div[style*="span 2"], 
+  div[style*="grid-column"] {
+    grid-column: 1 / -1 !important;
+  }
+  
+  /* Fix sticky booking widget on mobile (remove sticky) */
+  div[style*="position: sticky"] {
+    position: static !important;
+    margin-top: var(--spacing-lg) !important;
+  }
+  
+  /* Shrink hero and large gallery section heights */
+  section[style*="height: 380px"] {
+    height: 240px !important;
+    border-radius: 0 !important;
+    margin-left: calc(-1 * var(--spacing-md)) !important;
+    margin-right: calc(-1 * var(--spacing-md)) !important;
+  }
+  
+  /* Improve flex containers layout */
+  div[style*="display: flex"][style*="gap: var(--spacing-lg)"],
+  div[style*="display: flex"][style*="gap: var(--spacing-xl)"] {
+    flex-wrap: wrap !important;
+    gap: var(--spacing-md) !important;
+  }
+
+  /* Make map heights responsive */
+  div[style*="height: 300px"], 
+  div[style*="height: 380px"] {
+    height: 250px !important;
+  }
+
+  /* Optimize Navbar for mobile viewing */
+  .nav-search-bar {
+    display: none !important;
+  }
+  .navbar-host-link {
+    display: none !important;
+  }
+  
+  /* Standardize card paddings */
+  .card {
+    padding: var(--spacing-md) !important;
+  }
+  
+  /* Fix input fields widths just in case */
+  input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    width: 100% !important;
+  }
+  
+  /* Scale down h1 and h2 */
+  h1 { font-size: 1.8rem !important; }
+  h2 { font-size: 1.5rem !important; }
+}

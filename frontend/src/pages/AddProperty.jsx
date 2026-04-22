@@ -197,6 +197,17 @@ function AddProperty() {
         setLoading(false);
         return;
       }
+
+      // Automatically add any draft comparison that the user forgot to add
+      let finalComparisons = [...formData.price_comparisons];
+      if (comparisonDraft.platform && comparisonDraft.price) {
+        finalComparisons.push({
+          platform: comparisonDraft.platform.trim(),
+          price: Number(comparisonDraft.price),
+          url: comparisonDraft.url.trim()
+        });
+      }
+
       const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
 
@@ -205,7 +216,7 @@ function AddProperty() {
         if (key === 'amenities') {
           formDataToSend.append(key, JSON.stringify(formData[key]));
         } else if (key === 'price_comparisons') {
-          formDataToSend.append(key, JSON.stringify(formData[key]));
+          formDataToSend.append(key, JSON.stringify(finalComparisons));
         } else if (formData[key] !== '' && formData[key] != null) {
           formDataToSend.append(key, formData[key]);
         }

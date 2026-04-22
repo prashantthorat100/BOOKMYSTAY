@@ -192,10 +192,10 @@ router.post('/resend-verification-otp', async (req, res) => {
   }
 });
 
-// Google Sign-In (ID token -> verify -> create/login)
-router.post('/google', async (req, res) => {
+// Google Sign-In Login
+router.post('/google-login', async (req, res) => {
   try {
-    const { idToken, role } = req.body;
+    const { idToken } = req.body;
     if (!idToken) return res.status(400).json({ error: 'idToken is required' });
 
     const ticket = await googleClient.verifyIdToken({
@@ -205,37 +205,39 @@ router.post('/google', async (req, res) => {
 
     const payload = ticket.getPayload();
     const email = payload?.email?.toLowerCase();
-    const googleId = payload?.sub;
-    const name = payload?.name || 'User';
-    const avatar = payload?.picture || null;
     const emailVerified = !!payload?.email_verified;
 
-    if (!email || !googleId) return res.status(400).json({ error: 'Invalid Google token' });
+    if (!email) return res.status(400).json({ error: 'Invalid Google token' });
     if (!emailVerified) return res.status(403).json({ error: 'Google email is not verified' });
 
-    let user = await User.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) {
-      if (role && !['guest', 'host'].includes(role)) {
-        return res.status(400).json({ error: 'Role must be either guest or host' });
-      }
-      user = await User.create({
+      return res.status(404).json({ error: 'Account not found. Please sign up first.' });
+    }
+
+    if (!user.is_email_verified) {
+      // Send OTP
+      const existingToken = await EmailVerificationToken.findOne({
         email,
-        password_hash: null,
-        name,
-        phone: null,
-        role: role || 'guest',
-        avatar,
-        auth_provider: 'google',
-        is_email_verified: true,
-        google_id: googleId
+        used: false,
+        created_at: { $gte: new Date(Date.now() - 60 * 1000) }
       });
-    } else {
-      // Link/normalize existing account
-      if (!user.google_id) user.google_id = googleId;
-      if (!user.avatar && avatar) user.avatar = avatar;
-      user.auth_provider = user.auth_provider || 'email';
-      user.is_email_verified = true;
-      await user.save();
+      if (!existingToken) {
+        const otp = generateOtp();
+        const otpHash = await bcrypt.hash(otp, 10);
+        await EmailVerificationToken.create({
+          email,
+          otp_hash: otpHash,
+          expires_at: new Date(Date.now() + 10 * 60 * 1000),
+          used: false
+        });
+        await emailService.sendEmailVerificationOtp(email, otp);
+      }
+      return res.status(403).json({
+        error: 'Email not verified. OTP sent.',
+        requiresOtp: true,
+        email: user.email
+      });
     }
 
     const token = signJwt(user);
@@ -245,8 +247,80 @@ router.post('/google', async (req, res) => {
       user: { id: user.id, email: user.email, name: user.name, role: user.role, avatar: user.avatar }
     });
   } catch (error) {
-    console.error('[AUTH] Google auth error:', error?.message || error);
+    console.error('[AUTH] Google login error:', error?.message || error);
     res.status(500).json({ error: 'Server error during Google authentication' });
+  }
+});
+
+// Google Sign-In Register
+router.post('/google-register', async (req, res) => {
+  try {
+    const { idToken, role, name, dob } = req.body;
+    if (!idToken) return res.status(400).json({ error: 'idToken is required' });
+    if (!role || !['guest', 'host'].includes(role)) {
+      return res.status(400).json({ error: 'Valid role is required' });
+    }
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email?.toLowerCase();
+    const googleId = payload?.sub;
+    const avatar = payload?.picture || null;
+    const emailVerified = !!payload?.email_verified;
+
+    if (!email || !googleId) return res.status(400).json({ error: 'Invalid Google token' });
+    if (!emailVerified) return res.status(403).json({ error: 'Google email is not verified' });
+
+    let user = await User.findOne({ email });
+    if (user) {
+       if (!user.is_email_verified) {
+          const otp = generateOtp();
+          const otpHash = await bcrypt.hash(otp, 10);
+          await EmailVerificationToken.create({ email, otp_hash: otpHash, expires_at: new Date(Date.now() + 10 * 60 * 1000), used: false });
+          await emailService.sendEmailVerificationOtp(email, otp);
+          return res.status(201).json({ message: 'Verification OTP sent.', requiresOtp: true, email: user.email });
+       }
+       return res.status(400).json({ error: 'Account already exists. Please login.' });
+    }
+
+    user = await User.create({
+      email,
+      password_hash: null,
+      name,
+      dob: dob || null,
+      phone: null,
+      role,
+      avatar,
+      auth_provider: 'google',
+      is_email_verified: false,
+      google_id: googleId
+    });
+
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    
+    await EmailVerificationToken.create({
+      email,
+      otp_hash: otpHash,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000),
+      used: false
+    });
+    
+    await emailService.sendEmailVerificationOtp(email, otp);
+    
+    return res.status(201).json({
+      message: 'Verification OTP sent to your email. Please verify to activate your account.',
+      requiresOtp: true,
+      email: user.email
+    });
+  } catch (error) {
+    console.error('[AUTH] Google register error:', error?.message || error);
+    res.status(500).json({ error: 'Server error during Google registration' });
   }
 });
 

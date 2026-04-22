@@ -19,6 +19,8 @@ function Signup() {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleStep, setGoogleStep] = useState(false);
+  const [googleData, setGoogleData] = useState({ name: '', email: '', dob: '', idToken: '', agreed: false });
 
   useEffect(() => {
     // Render Google button once Google script is loaded
@@ -32,23 +34,21 @@ function Signup() {
           client_id: clientId,
           callback: async (response) => {
             try {
-              setGoogleLoading(true);
-              const res = await axios.post('/api/auth/google', {
+              if (!formData.role) {
+                toast.error('Please select whether you want to be a Guest or a Host first.');
+                return;
+              }
+              const payload = JSON.parse(atob(response.credential.split('.')[1]));
+              setGoogleData({
+                name: payload.name || '',
+                email: payload.email || '',
+                dob: '',
                 idToken: response.credential,
-                role: formData.role || 'guest'
+                agreed: false
               });
-              localStorage.setItem('token', res.data.token);
-              localStorage.setItem('user', JSON.stringify(res.data.user));
-              window.dispatchEvent(new CustomEvent('auth-change'));
-              toast.success('Signed in with Google');
-              setTimeout(() => {
-                if (res.data.user.role === 'host') navigate('/host/dashboard');
-                else navigate('/');
-              }, 500);
+              setGoogleStep(true);
             } catch (err) {
-              toast.error(err.response?.data?.error || 'Google sign-in failed');
-            } finally {
-              setGoogleLoading(false);
+              toast.error('Failed to parse Google credentials');
             }
           }
         });
@@ -109,6 +109,43 @@ function Signup() {
       toast.error(err.response?.data?.error || 'Registration failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setGoogleData({ ...googleData, [e.target.name]: value });
+  };
+
+  const handleGoogleSubmit = async (e) => {
+    e.preventDefault();
+    if (!googleData.agreed) {
+      toast.error('You must agree to the Terms and Conditions');
+      return;
+    }
+    if (!googleData.dob) {
+      toast.error('Please provide your Date of Birth');
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      const res = await axios.post('/api/auth/google-register', {
+        idToken: googleData.idToken,
+        role: formData.role,
+        name: googleData.name,
+        dob: googleData.dob
+      });
+      if (res.data.requiresOtp) {
+        setFormData((prev) => ({ ...prev, email: res.data.email }));
+        toast.success(res.data.message || 'OTP sent. Verify your email to activate account.');
+        setVerifyStep('otp');
+        setGoogleStep(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Google signup failed');
+      setGoogleStep(false);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -205,17 +242,19 @@ function Signup() {
             </header>
 
             {/* Google Signup */}
-            <div className="mb-8">
-              {!formData.role ? (
-                <div className="text-xs text-on-surface-variant">
-                  Select Guest/Host first to continue with Google.
+            {!googleStep ? (
+              <>
+                <div className="mb-8">
+                  {!formData.role ? (
+                    <div className="text-xs text-on-surface-variant">
+                      Select Guest/Host first to continue with Google.
+                    </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <div id="google-signup-btn" className={googleLoading ? 'opacity-60 pointer-events-none' : ''}></div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex justify-center">
-                  <div id="google-signup-btn" className={googleLoading ? 'opacity-60 pointer-events-none' : ''}></div>
-                </div>
-              )}
-            </div>
 
             {/* Form */}
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -315,6 +354,60 @@ function Signup() {
                 {loading ? 'Creating Account...' : 'Agree and continue'}
               </button>
             </form>
+            </>
+            ) : (
+              <form className="space-y-6" onSubmit={handleGoogleSubmit}>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 font-label">Legal Name</label>
+                  <input
+                    className="w-full bg-surface-container-low border-0 rounded-xl px-4 py-4 text-on-surface placeholder:text-outline/50 focus:ring-2 focus:ring-primary/10 transition-all"
+                    name="name"
+                    type="text"
+                    value={googleData.name}
+                    onChange={handleGoogleChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 font-label">Date of Birth</label>
+                  <input
+                    className="w-full bg-surface-container-low border-0 rounded-xl px-4 py-4 text-on-surface placeholder:text-outline/50 focus:ring-2 focus:ring-primary/10 transition-all"
+                    name="dob"
+                    type="date"
+                    value={googleData.dob}
+                    onChange={handleGoogleChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 font-label">Email (Uneditable)</label>
+                  <input
+                    className="w-full bg-surface-container-low border-0 rounded-xl px-4 py-4 text-on-surface/50 cursor-not-allowed transition-all"
+                    name="email"
+                    type="email"
+                    value={googleData.email}
+                    readOnly
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    className="w-5 h-5 rounded border-outline-variant/30 text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer"
+                    id="agreed"
+                    name="agreed"
+                    type="checkbox"
+                    checked={googleData.agreed}
+                    onChange={handleGoogleChange}
+                    required
+                  />
+                  <label className="text-sm text-on-surface-variant font-medium select-none cursor-pointer" htmlFor="agreed">
+                    I agree to the Terms and Conditions
+                  </label>
+                </div>
+                <button className="w-full bg-[#ff5a5f] text-white font-headline font-bold py-5 rounded-xl shadow-[0_20px_40px_rgba(255,90,95,0.25)] hover:shadow-none hover:translate-y-0.5 transition-all active:scale-95 duration-300 disabled:opacity-70 disabled:cursor-not-allowed" type="submit" disabled={googleLoading}>
+                  {googleLoading ? 'Processing...' : 'Agree and continue'}
+                </button>
+              </form>
+            )}
 
             {verifyStep === 'otp' && (
               <div className="mt-8 p-4 bg-surface-container-low border border-outline-variant/30 rounded-xl space-y-4">

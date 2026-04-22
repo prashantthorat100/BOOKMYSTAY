@@ -340,13 +340,23 @@ function PropertyDetail() {
           </div>
 
           {Array.isArray(property.price_comparisons) && property.price_comparisons.length > 0 && (
-            <div className="card" style={{ marginTop: 'var(--spacing-lg)' }}>
-              <h3>Price comparison</h3>
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
+            <div className="card" style={{ marginTop: 'var(--spacing-lg)', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: '1.5rem' }}>compare_arrows</span>
+                Price Comparison
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {property.price_comparisons.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{item.platform}</span>
-                    <span>₹{item.price}</span>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'white', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--on-surface)', fontSize: '1.05rem' }}>{item.platform}</span>
+                      {item.url && (
+                        <a href={item.url.startsWith('http') ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: '500' }} className="comparison-link">
+                          View on website ↗
+                        </a>
+                      )}
+                    </div>
+                    <span style={{ fontWeight: '800', color: 'var(--on-surface)', fontSize: '1.15rem' }}>₹{item.price}</span>
                   </div>
                 ))}
               </div>

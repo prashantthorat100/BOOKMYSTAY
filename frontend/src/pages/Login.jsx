@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -19,6 +19,70 @@ function Login() {
   const [verifyOtp, setVerifyOtp] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
+
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const render = () => {
+      if (!window.google?.accounts?.id) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response) => {
+            try {
+              setGoogleLoading(true);
+              const res = await axios.post('/api/auth/google-login', {
+                idToken: response.credential
+              });
+              
+              localStorage.setItem('token', res.data.token);
+              localStorage.setItem('user', JSON.stringify(res.data.user));
+              window.dispatchEvent(new CustomEvent('auth-change'));
+              toast.success('Signed in with Google');
+              setTimeout(() => {
+                if (res.data.user.role === 'host') navigate('/host/dashboard');
+                else navigate('/');
+              }, 500);
+            } catch (err) {
+              const msg = err.response?.data?.error || 'Google sign-in failed';
+              toast.error(msg);
+              if (err.response?.data?.requiresOtp) {
+                setFormData((prev) => ({ ...prev, email: err.response.data.email }));
+                setShowVerify(true);
+              }
+            } finally {
+              setGoogleLoading(false);
+            }
+          }
+        });
+
+        const el = document.getElementById('google-login-btn');
+        if (el && !el.dataset.rendered) {
+          window.google.accounts.id.renderButton(el, {
+            theme: 'outline',
+            size: 'large',
+            shape: 'pill',
+            text: 'signin_with',
+            width: 380
+          });
+          el.dataset.rendered = 'true';
+        }
+      } catch (_e) {
+        // ignore
+      }
+    };
+
+    const t = setInterval(() => {
+      render();
+      if (document.getElementById('google-login-btn')?.dataset.rendered === 'true') {
+        clearInterval(t);
+      }
+    }, 250);
+    return () => clearInterval(t);
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -210,23 +274,8 @@ function Login() {
         <p className="text-on-surface-variant text-sm">Please enter your details to access your sanctuary.</p>
         </header>
         {/* Social Login Cluster */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-        <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-surface-container-low border border-outline-variant/15 hover:bg-surface-container transition-all duration-300 active:scale-95 group">
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-        </svg>
-        <span className="text-sm font-semibold font-label text-on-surface">Google</span>
-        </button>
-        <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-surface-container-low border border-outline-variant/15 hover:bg-surface-container transition-all duration-300 active:scale-95 group">
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-        <path d="M12.152 6.896c-.694 0-1.315.351-1.315.351s-.625-.351-1.32-.351c-1.252 0-2.123 1.028-2.123 2.124 0 1.302 1.442 2.622 3.443 4.23l.003.003c.125.101.296.101.421 0l.003-.003c2-1.608 3.442-2.928 3.442-4.23 0-1.096-.87-2.124-2.123-2.124z" fill="currentColor"></path>
-        <path d="M17.05 20.28c-.96 0-2.04-.6-3.23-1.45-1.19-.85-2.52-1.34-3.82-1.34s-2.63.49-3.82 1.34c-1.19.85-2.27 1.45-3.23 1.45-1.65 0-2.99-1.34-2.99-2.99V6.1c0-1.65 1.34-2.99 2.99-2.99h14.1c1.65 0 2.99 1.34 2.99 2.99v11.19c0 1.65-1.34 2.99-2.99 2.99zM6.1 4.6c-.82 0-1.49.67-1.49 1.49v11.19c0 .82.67 1.49 1.49 1.49.52 0 1.15-.35 2.01-.96 1.31-.93 2.85-1.47 4.39-1.47s3.08.54 4.39 1.47c.86.61 1.49.96 2.01.96.82 0 1.49-.67 1.49-1.49V6.1c0-.82-.67-1.49-1.49-1.49H6.1z" fill="currentColor"></path>
-        </svg>
-        <span className="text-sm font-semibold font-label text-on-surface">Apple</span>
-        </button>
+        <div className="flex justify-center mb-8">
+          <div id="google-login-btn" className={googleLoading ? 'opacity-60 pointer-events-none' : ''}></div>
         </div>
         <div className="relative flex items-center justify-center mb-10">
         <div className="w-full h-px bg-outline-variant/15"></div>

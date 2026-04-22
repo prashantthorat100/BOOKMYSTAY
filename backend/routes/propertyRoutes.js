@@ -44,6 +44,13 @@ const normalizeProperty = (property, stats) => {
   delete base.host_id;
   delete base.id;
 
+  // Clear expired offers automatically
+  if (base.offer_valid_till && new Date(base.offer_valid_till) < new Date()) {
+    base.offer_title = '';
+    base.discount_percentage = 0;
+    base.offer_valid_till = null;
+  }
+
   return {
     id,
     ...base,
