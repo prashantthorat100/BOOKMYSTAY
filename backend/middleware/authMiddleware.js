@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 
-export const authenticateToken = (req, res, next) => {
+import User from '../models/User.js';
+
+export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -8,13 +10,20 @@ export const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Ensure user still exists in the database
+    const userExists = await User.findById(decoded.id).select('_id name email role').lean();
+    if (!userExists) {
+      return res.status(401).json({ error: 'User no longer exists. Please log in again.' });
     }
-    req.user = user; // Attach user info to request
+    
+    req.user = decoded; // Attach user info to request
     next();
-  });
+  } catch (err) {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
 };
 
 export const isHost = (req, res, next) => {

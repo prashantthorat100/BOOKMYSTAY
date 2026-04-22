@@ -12,6 +12,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import hostRoutes from './routes/hostRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import forgotPasswordRoutes from './routes/forgotPasswordRoutes.js';
 
 // Import database connection
 import { connectDB } from './config/db.js';
@@ -32,6 +33,10 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// View engine setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
@@ -40,6 +45,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/host', hostRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/', forgotPasswordRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -51,10 +51,20 @@ const normalizeProperty = (property, stats) => {
     base.offer_valid_till = null;
   }
 
+  let finalHostId = null;
+  if (property.host_id) {
+    if (property.host_id._id) {
+      finalHostId = property.host_id._id.toString();
+    } else {
+      // In case property.host_id is simply an ObjectId (if populate skipped) or string
+      finalHostId = property.host_id.toString();
+    }
+  }
+
   return {
     id,
     ...base,
-    host_id: host._id ? host._id.toString() : host?.toString?.() ?? null,
+    host_id: finalHostId,
     host_name: host.name || null,
     host_email: host.email || null,
     host_avatar: host.avatar || null,
