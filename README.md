@@ -1,4 +1,4 @@
-# Airbnb Clone - Full Stack MERN Application
+# BOOKMYSTAY - Full Stack MERN Application
 
 A full-featured vacation rental platform built with **MongoDB**, **Express**, **React**, and **Node.js**.
 
@@ -50,7 +50,7 @@ Before you begin, ensure you have:
 
 ### 1. Clone or Navigate to Project
 ```bash
-cd airbnb-clone
+cd BOOKMYSTAY_CP
 ```
 
 ### 2. Backend Setup
@@ -108,7 +108,7 @@ Application will run on `http://localhost:3000`
 ## 📁 Project Structure
 
 ```
-airbnb-clone/
+BOOKMYSTAY_CP
 ├── backend/
 │   ├── config/
 │   │   └── db.js              # Database connection
