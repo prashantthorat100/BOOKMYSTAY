@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Star, Heart } from 'lucide-react';
 import { useState } from 'react';
+import { resolveAssetUrl } from '../utils/api';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
@@ -18,9 +19,7 @@ const PropertyCard = ({ property }) => {
   const images = parseImages(property?.images);
   const getImageUrl = (img) => {
     if (!img) return 'https://via.placeholder.com/400x400?text=No+Image';
-    if (img.startsWith('http') || img.startsWith('data:')) return img;
-    if (img.startsWith('/uploads')) return img;
-    return `/uploads/${img}`;
+    return resolveAssetUrl(img);
   };
 
   const discountPercent = Number(property?.discount_percentage || 0);

@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
+import { resolveAssetUrl } from '../utils/api';
 
 function ImageSlider({ images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const resolveImage = (img) => {
     if (!img) return 'https://via.placeholder.com/1200x800?text=No+Image';
-    if (img.startsWith('http') || img.startsWith('data:')) return img;
-    if (img.startsWith('/uploads')) return img;
-    return `/uploads/${img}`;
+    return resolveAssetUrl(img);
   };
 
   // Handle ESC key to close fullscreen

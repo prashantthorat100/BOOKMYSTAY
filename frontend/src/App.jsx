@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from './utils/api';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -15,6 +16,8 @@ import AddProperty from './pages/AddProperty';
 import EditProperty from './pages/EditProperty';
 import Inbox from './pages/Inbox';
 import MyBookings from './pages/MyBookings';
+
+axios.defaults.baseURL = API_BASE_URL;
 
 // Global HTTP Response Interceptor for Token Expiration
 axios.interceptors.response.use(

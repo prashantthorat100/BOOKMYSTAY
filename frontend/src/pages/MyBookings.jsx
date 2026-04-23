@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Map from '../components/Map';
+import { resolveAssetUrl } from '../utils/api';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
@@ -109,7 +110,7 @@ export default function MyBookings() {
           {bookings.map((b) => {
             const images = parseImages(b?.images);
             const firstImage = images.length > 0
-              ? `/uploads/${images[0]}`
+              ? resolveAssetUrl(images[0])
               : 'https://via.placeholder.com/500x320?text=No+Image';
 
             const propertyLink = b.property_id ? `/property/${b.property_id}` : null;
@@ -190,4 +191,3 @@ export default function MyBookings() {
     </div>
   );
 }
-

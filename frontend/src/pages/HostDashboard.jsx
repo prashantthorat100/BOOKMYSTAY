@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { resolveAssetUrl } from '../utils/api';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
@@ -100,9 +101,7 @@ function HostDashboard() {
 
   const getImageUrl = (img) => {
     if (!img) return 'https://via.placeholder.com/400x300?text=No+Image';
-    if (img.startsWith('http') || img.startsWith('data:')) return img;
-    if (img.startsWith('/uploads')) return img;
-    return `/uploads/${img}`;
+    return resolveAssetUrl(img);
   };
 
   const handleDeleteProperty = async (propertyId) => {

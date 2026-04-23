@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Map from '../components/Map';
 import { reverseGeocode, geocodeAddress } from '../utils/googleMaps';
+import { resolveAssetUrl } from '../utils/api';
 
 function EditProperty() {
   const { id } = useParams();
@@ -615,7 +616,7 @@ function EditProperty() {
                 {existingImages.map((img, idx) => (
                   <div key={idx} style={{ position: 'relative', height: '100px' }}>
                     <img 
-                      src={`/uploads/${img}`} 
+                      src={resolveAssetUrl(img)} 
                       alt={`current ${idx}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
                     />

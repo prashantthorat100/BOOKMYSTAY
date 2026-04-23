@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { resolveAssetUrl } from '../utils/api';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
@@ -88,7 +89,7 @@ function Dashboard() {
           {bookings.map(booking => {
             const images = parseImages(booking?.images);
             const firstImage = images.length > 0 
-              ? `/uploads/${images[0]}` 
+              ? resolveAssetUrl(images[0]) 
               : 'https://via.placeholder.com/400x300?text=No+Image';
 
             return (
