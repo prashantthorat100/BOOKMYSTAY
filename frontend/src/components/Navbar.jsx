@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { Search, Globe, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard, MessageCircle } from 'lucide-react';
+import { Search, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard, MessageCircle, House } from 'lucide-react';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -81,10 +81,12 @@ function Navbar() {
       <div className="container" style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) auto minmax(120px, 1fr)', alignItems: 'center' }}>
         
         {/* 1. Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: '1.25rem' }}>
-          <MapPin fill="var(--primary)" color="white" size={28} />
-          <span style={{ letterSpacing: '-0.5px' }}>BookMyStay</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: '1.25rem' }}>
+            <MapPin fill="var(--primary)" color="white" size={28} />
+            <span style={{ letterSpacing: '-0.5px' }}>BookMyStay</span>
+          </Link>
+        </div>
         
         {/* 2. Search Bar placeholder */}
         <div style={{
@@ -131,6 +133,40 @@ function Navbar() {
             </Link>
           )}
 
+          <Link
+            to="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.6rem 1rem',
+              borderRadius: '999px',
+              textDecoration: 'none',
+              color: 'var(--neutral-700)',
+              background: 'linear-gradient(135deg, var(--neutral-50), white)',
+              border: '1px solid var(--neutral-200)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, var(--primary), #ff7a59)';
+              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, var(--neutral-50), white)';
+              e.currentTarget.style.color = 'var(--neutral-700)';
+              e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <House size={16} />
+            <span>Home</span>
+          </Link>
+
           {user && (
             <div 
               onClick={() => navigate('/inbox')}
@@ -164,14 +200,6 @@ function Navbar() {
               )}
             </div>
           )}
-
-          <div 
-            style={{ padding: '0.75rem', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.2s' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-50)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <Globe size={18} color="var(--neutral-600)" />
-          </div>
 
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button 

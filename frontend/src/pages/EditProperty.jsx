@@ -35,6 +35,8 @@ function EditProperty() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState('');
   const [comparisonDraft, setComparisonDraft] = useState({ platform: '', price: '', url: '' });
+  const [editingComparisonIndex, setEditingComparisonIndex] = useState(null);
+  const [editingComparisonDraft, setEditingComparisonDraft] = useState({ platform: '', price: '', url: '' });
 
 
   const amenitiesList = [
@@ -129,6 +131,46 @@ function EditProperty() {
       ...prev,
       price_comparisons: prev.price_comparisons.filter((_, i) => i !== idx)
     }));
+    if (editingComparisonIndex === idx) {
+      cancelEditingComparison();
+    }
+  };
+
+  const startEditingComparison = (idx) => {
+    const comparison = formData.price_comparisons[idx];
+    if (!comparison) return;
+
+    setEditingComparisonIndex(idx);
+    setEditingComparisonDraft({
+      platform: comparison.platform || '',
+      price: comparison.price ?? '',
+      url: comparison.url || ''
+    });
+  };
+
+  const cancelEditingComparison = () => {
+    setEditingComparisonIndex(null);
+    setEditingComparisonDraft({ platform: '', price: '', url: '' });
+  };
+
+  const saveEditedComparison = () => {
+    if (editingComparisonIndex === null) return;
+    if (!editingComparisonDraft.platform || !editingComparisonDraft.price) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      price_comparisons: prev.price_comparisons.map((comparison, idx) =>
+        idx === editingComparisonIndex
+          ? {
+              platform: editingComparisonDraft.platform.trim(),
+              price: Number(editingComparisonDraft.price),
+              url: editingComparisonDraft.url.trim()
+            }
+          : comparison
+      )
+    }));
+
+    cancelEditingComparison();
   };
 
 
@@ -416,9 +458,43 @@ function EditProperty() {
           {formData.price_comparisons.length > 0 && (
             <div style={{ marginTop: 'var(--spacing-md)', display: 'grid', gap: '0.5rem' }}>
               {formData.price_comparisons.map((c, idx) => (
-                <div key={idx} className="card" style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{c.platform}: ₹{c.price}</span>
-                  <button type="button" className="btn btn-outline" onClick={() => removeComparison(idx)}>Remove</button>
+                <div key={idx} className="card" style={{ padding: '0.75rem', display: 'grid', gap: '0.75rem' }}>
+                  {editingComparisonIndex === idx ? (
+                    <>
+                      <div className="grid grid-3">
+                        <input
+                          type="text"
+                          value={editingComparisonDraft.platform}
+                          onChange={(e) => setEditingComparisonDraft((prev) => ({ ...prev, platform: e.target.value }))}
+                          className="form-input"
+                          placeholder="Platform"
+                        />
+                        <input
+                          type="number"
+                          value={editingComparisonDraft.price}
+                          onChange={(e) => setEditingComparisonDraft((prev) => ({ ...prev, price: e.target.value }))}
+                          className="form-input"
+                          placeholder="Price"
+                        />
+                        <input
+                          type="text"
+                          value={editingComparisonDraft.url}
+                          onChange={(e) => setEditingComparisonDraft((prev) => ({ ...prev, url: e.target.value }))}
+                          className="form-input"
+                          placeholder="Optional link"
+                        />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <button type="button" className="btn btn-secondary" onClick={saveEditedComparison}>Save</button>
+                        <button type="button" className="btn btn-outline" onClick={cancelEditingComparison}>Cancel</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <span>{c.platform}: ₹{c.price}</span>
+                      <button type="button" className="btn btn-outline" onClick={() => removeComparison(idx)}>Remove</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

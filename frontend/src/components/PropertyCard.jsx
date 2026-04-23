@@ -135,11 +135,11 @@ const PropertyCard = ({ property }) => {
                 <span style={{ fontWeight: 400, color: 'var(--neutral-400)', textDecoration: 'line-through', marginLeft: '0.35rem' }}>
                   ₹{property.price_per_night}
                 </span>{' '}
-                <span style={{ fontWeight: 400 }}>night</span>
+                <span style={{ fontWeight: 400 }}>/ night</span>
               </>
             ) : (
               <>
-                <span style={{ fontWeight: 600 }}>₹{property.price_per_night}</span> <span style={{ fontWeight: 400 }}>night</span>
+                <span style={{ fontWeight: 600 }}>₹{property.price_per_night}</span> <span style={{ fontWeight: 400 }}>/ night</span>
               </>
             )}
           </div>
