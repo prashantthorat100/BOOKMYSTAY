@@ -16,6 +16,7 @@ import AddProperty from './pages/AddProperty';
 import EditProperty from './pages/EditProperty';
 import Inbox from './pages/Inbox';
 import MyBookings from './pages/MyBookings';
+import MyFavourites from './pages/MyFavourites';
 
 axios.defaults.baseURL = API_BASE_URL;
 
@@ -61,6 +62,7 @@ function App() {
         <Route path="/host/dashboard" element={<HostDashboard />} />
         <Route path="/host/add-property" element={<AddProperty />} />
         <Route path="/host/edit-property/:id" element={<EditProperty />} />
+        <Route path="/favourites" element={<MyFavourites />} />
       </Routes>
       <Footer />
     </div>

@@ -13,6 +13,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import hostRoutes from './routes/hostRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import forgotPasswordRoutes from './routes/forgotPasswordRoutes.js';
+import favouriteRoutes from './routes/favouriteRoutes.js';
 
 // Import database connection
 import { connectDB } from './config/db.js';
@@ -61,6 +62,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/host', hostRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/favourites', favouriteRoutes);
 app.use('/', forgotPasswordRoutes);
 
 // Health check endpoint

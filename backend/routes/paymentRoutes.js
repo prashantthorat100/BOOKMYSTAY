@@ -99,8 +99,6 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Minimum amount is ₹1' });
     }
 
-    // Razorpay receipt max length is 40 chars.
-    // 'bk_' (3) + property_id last 6 chars (6) + Date.now() (13) = 22 chars
     const shortPropId = String(property_id).slice(-6);
     const order = await razorpay.orders.create({
       amount: amountPaise,

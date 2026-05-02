@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { Search, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard, MessageCircle, House } from 'lucide-react';
+import { Search, Menu, UserCircle, MapPin, Building, LogOut, LayoutDashboard, MessageCircle, House, Heart } from 'lucide-react';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -261,6 +261,9 @@ function Navbar() {
                         <Link to="/host/add-property" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
                           <Building size={18} /> Add Property
                         </Link>
+                        <Link to="/favourites" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: '#FF385C', textDecoration: 'none', transition: 'background 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                          <Heart size={18} fill="#FF385C" color="#FF385C" /> My Favourites
+                        </Link>
                       </>
                     ) : (
                       <>
@@ -269,6 +272,9 @@ function Navbar() {
                         </Link>
                         <Link to="/my-bookings" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: 'var(--neutral-600)', textDecoration: 'none', transition: 'background 0.2s' }} onMouseEnter={(e) => e.target.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.target.style.background = 'white'}>
                           <LayoutDashboard size={18} /> My Bookings
+                        </Link>
+                        <Link to="/favourites" onClick={() => setDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', color: '#FF385C', textDecoration: 'none', transition: 'background 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-50)'} onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                          <Heart size={18} fill="#FF385C" color="#FF385C" /> My Favourites
                         </Link>
                       </>
                     )}

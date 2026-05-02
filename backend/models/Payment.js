@@ -7,7 +7,9 @@ const paymentSchema = new mongoose.Schema({
   razorpay_payment_id: { type: String, required: true },
   amount: { type: Number, required: true },
   currency: { type: String, default: 'INR' },
-  status: { type: String, default: 'captured' }
+  status: { type: String, default: 'captured' },
+  payment_method: { type: String, enum: ['upi_qr', 'upi_id', null], default: null },
+  upi_id: { type: String, default: null }
 }, baseSchemaOptions);
 
 paymentSchema.index({ booking_id: 1 });

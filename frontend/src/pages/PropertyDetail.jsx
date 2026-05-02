@@ -34,6 +34,7 @@ function PropertyDetail() {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
+
   const [availability, setAvailability] = useState(null); // null | true | false
   const [locationSetting, setLocationSetting] = useState(false);
 
@@ -121,17 +122,21 @@ function PropertyDetail() {
     }
   };
 
-  const handlePayAndBook = async (e) => {
+  // ── Standard Razorpay Checkout (QR / Cards / UPI — user chooses in modal) ──
+  const handleBooking = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
+    if (!token) { navigate('/login'); return; }
+
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!razorpayKey || !window.Razorpay) {
+      toast.error('Payment is not configured on this app');
       return;
     }
 
     setBookingLoading(true);
-
     try {
+      // 1. Create a Razorpay order on the backend
       const orderRes = await axios.post('/api/payments/create-order', {
         property_id: id,
         check_in: bookingData.check_in,
@@ -139,15 +144,9 @@ function PropertyDetail() {
         guests_count: Number(bookingData.guests_count)
       }, { headers: { Authorization: `Bearer ${token}` } });
 
-      const { orderId, amountPaise, amount, currency } = orderRes.data;
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      const { orderId, amountPaise, currency } = orderRes.data;
 
-      if (!razorpayKey || !window.Razorpay) {
-        toast.error('Payment is not configured. Add VITE_RAZORPAY_KEY_ID in frontend .env');
-        setBookingLoading(false);
-        return;
-      }
-
+      // 2. Open standard Razorpay checkout modal
       const options = {
         key: razorpayKey,
         amount: amountPaise,
@@ -157,7 +156,7 @@ function PropertyDetail() {
         description: `Booking: ${property?.title || 'Property'}`,
         handler: async function (response) {
           try {
-            toast.loading('Confirming booking...', { id: 'booking-confirm' });
+            toast.loading('Confirming booking…', { id: 'book-confirm' });
             const verifyRes = await axios.post('/api/payments/verify', {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -168,10 +167,10 @@ function PropertyDetail() {
               guests_count: Number(bookingData.guests_count)
             }, { headers: { Authorization: `Bearer ${token}` } });
 
-            toast.success(`Booking confirmed! Total: ₹${verifyRes.data.totalPrice}`, { id: 'booking-confirm' });
-            setTimeout(() => navigate('/dashboard'), 2000);
+            toast.success(`🎉 Booking confirmed! Total: ₹${verifyRes.data.totalPrice}`, { id: 'book-confirm' });
+            setTimeout(() => navigate('/dashboard'), 2200);
           } catch (err) {
-            toast.error(err.response?.data?.error || 'Booking could not be confirmed', { id: 'booking-confirm' });
+            toast.error(err.response?.data?.error || 'Booking confirmation failed', { id: 'book-confirm' });
           } finally {
             setBookingLoading(false);
           }
@@ -180,8 +179,9 @@ function PropertyDetail() {
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response){
-        toast.error(`Payment failed: ${response.error.description}`);
+      rzp.on('payment.failed', (resp) => {
+        toast.error(`Payment failed: ${resp.error.description}`);
+        setBookingLoading(false);
       });
       rzp.open();
     } catch (err) {
@@ -500,7 +500,7 @@ function PropertyDetail() {
 
 
 
-            <form onSubmit={handlePayAndBook}>
+            <form onSubmit={handleBooking}>
               <div className="form-group">
                 <label className="form-label">Check-in</label>
                 <input
@@ -538,41 +538,44 @@ function PropertyDetail() {
                 />
               </div>
 
+
               {/* Price breakdown */}
               {nights > 0 && (
-                <div
-                  style={{
-                    padding: 'var(--spacing-md)',
-                    background: 'var(--neutral-800)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'white',
-                    marginBottom: 'var(--spacing-lg)',
-                    fontSize: '0.9rem'
-                  }}
-                >
+                <div style={{
+                  padding: 'var(--spacing-md)',
+                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'white',
+                  marginBottom: 'var(--spacing-lg)',
+                  fontSize: '0.9rem'
+                }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <span>
-                      ₹{discountedPricePerNight} × {nights} night{nights > 1 ? 's' : ''}
-                    </span>
+                    <span>₹{discountedPricePerNight} × {nights} night{nights > 1 ? 's' : ''}</span>
                     <span>₹{totalPrice}</span>
                   </div>
                   <hr style={{ borderColor: 'rgba(255,255,255,0.12)', margin: '0.5rem 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                    <span>Total (pay via Razorpay)</span>
-                    <span>₹{totalPrice}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1rem' }}>
+                    <span>Total</span>
+                    <span style={{ color: '#FFB400' }}>₹{totalPrice}</span>
                   </div>
                 </div>
               )}
 
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                style={{ width: '100%' }}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', fontSize: '1rem', padding: '0.9rem' }}
                 disabled={bookingLoading || (availability === false)}
               >
-                {bookingLoading ? 'Opening payment...' : 'Pay & Book'}
+                {bookingLoading
+                  ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2, margin: 0 }}/>Processing…</span>
+                  : '🔒 Reserve & Pay'
+                }
               </button>
             </form>
+
+
+
 
             <p style={{ fontSize: '0.875rem', color: 'var(--neutral-400)', textAlign: 'center', marginTop: 'var(--spacing-md)', marginBottom: 0 }}>
               Pay securely with Razorpay to confirm your booking

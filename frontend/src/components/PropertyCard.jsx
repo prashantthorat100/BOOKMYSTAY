@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Star, Heart } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { resolveAssetUrl } from '../utils/api';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 function parseImages(value) {
   if (value == null || value === '') return [];
@@ -14,8 +16,15 @@ function parseImages(value) {
   }
 }
 
-const PropertyCard = ({ property }) => {
+const PropertyCard = ({ property, initialFavourited = false, onUnfavourite }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [favourited, setFavourited] = useState(initialFavourited);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    setFavourited(initialFavourited);
+  }, [initialFavourited]);
+
   const images = parseImages(property?.images);
   const getImageUrl = (img) => {
     if (!img) return 'https://via.placeholder.com/400x400?text=No+Image';
@@ -31,6 +40,44 @@ const PropertyCard = ({ property }) => {
 
   const rating = property.avg_rating ? parseFloat(property.avg_rating).toFixed(2) : 'New';
   const firstImage = images.length > 0 ? getImageUrl(images[0]) : 'https://via.placeholder.com/400x400?text=No+Image';
+
+  const handleHeartClick = useCallback(async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please log in to save favourites');
+      return;
+    }
+
+    if (toggling) return;
+    setToggling(true);
+
+    // Optimistic update
+    const newState = !favourited;
+    setFavourited(newState);
+
+    try {
+      const res = await axios.post(`/api/favourites/${property.id}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setFavourited(res.data.favourited);
+
+      if (!res.data.favourited) {
+        toast('Removed from Favourites', { icon: '💔' });
+        onUnfavourite?.(property.id); // notify parent (Favourites page)
+      } else {
+        toast.success('Added to Favourites ❤️');
+      }
+    } catch {
+      // Rollback on error
+      setFavourited(!newState);
+      toast.error('Could not update favourites');
+    } finally {
+      setToggling(false);
+    }
+  }, [favourited, toggling, property.id, onUnfavourite]);
 
   return (
     <div 
@@ -145,17 +192,35 @@ const PropertyCard = ({ property }) => {
         </div>
       </Link>
       
-      {/* Heart Button Overlay */}
+      {/* Heart Button — toggles favourite */}
       <button 
-        style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', cursor: 'pointer', zIndex: 10, padding: '4px' }}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        className="heart-btn"
+        style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          background: 'transparent',
+          border: 'none',
+          cursor: toggling ? 'wait' : 'pointer',
+          zIndex: 10,
+          padding: '4px',
+          transition: 'transform 0.15s ease',
+          transform: toggling ? 'scale(0.85)' : 'scale(1)'
+        }}
+        onClick={handleHeartClick}
+        aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
+        title={favourited ? 'Remove from favourites' : 'Add to favourites'}
       >
-        <Heart size={24} color="white" fill="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+        <Heart
+          size={24}
+          color={favourited ? '#FF385C' : 'white'}
+          fill={favourited ? '#FF385C' : 'rgba(0,0,0,0.45)'}
+          strokeWidth={favourited ? 0 : 1.5}
+          style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))', transition: 'all 0.2s ease' }}
+        />
       </button>
 
     </div>
   );
-}
+};
 
 export default PropertyCard;
