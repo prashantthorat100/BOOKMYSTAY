@@ -30,17 +30,30 @@ const PORT = process.env.PORT || 5000;
 // Allow frontend origin – set FRONTEND_URL env var on Render for production
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:4173',
   'http://localhost:5173',
   process.env.FRONTEND_URL || 'https://bookmystay-frontend-6zrt.onrender.com'
 ];
+
+// Regex patterns for origins that are always allowed
+const allowedOriginPatterns = [
+  /^http:\/\/localhost:\d+$/,                  // any localhost port (dev)
+  /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,         // 10.x.x.x LAN (mobile / same WiFi)
+  /^http:\/\/192\.168\.\d+\.\d+:\d+$/,        // 192.168.x.x LAN
+  /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+:\d+$/ // 172.16–31.x.x LAN
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. mobile apps, curl, Postman)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy: origin ${origin} not allowed`));
-    }
+    // Allow requests with no origin (e.g. mobile apps, curl, Postman, same-origin)
+    if (!origin) return callback(null, true);
+    // Allow any explicitly listed origin
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow any origin matching our LAN / localhost patterns
+    if (allowedOriginPatterns.some(pattern => pattern.test(origin))) return callback(null, true);
+    callback(new Error(`CORS policy: origin ${origin} not allowed`));
   },
   credentials: true
 }));
@@ -65,6 +78,16 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/favourites', favouriteRoutes);
 app.use('/', forgotPasswordRoutes);
 
+// Root route — friendly API info
+app.get('/', (req, res) => {
+  res.json({
+    name: 'BookMyStay API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: '/api/health · /api/properties · /api/auth · /api/bookings'
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
@@ -80,13 +103,27 @@ app.use((err, req, res, next) => {
 
 // Start server after DB connects
 const start = async () => {
-  // Start API immediately; DB connects in background with retries.
-  // This prevents frontend proxy ECONNREFUSED spam during local DB startup.
   connectDB().catch((e) => console.error('DB connect loop error:', e?.message || e));
-  app.listen(PORT, () => {
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 API available at http://localhost:${PORT}/api`);
+    console.log(`📍 Local:   http://localhost:${PORT}/api`);
+    console.log(`🌐 Network: http://<your-LAN-IP>:${PORT}/api  (accessible from phone/tablet on same WiFi)`);
+  });
+
+  // Handle port-in-use gracefully instead of crashing
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌  Port ${PORT} is already in use!`);
+      console.error(`   Run this command to free it, then restart:\n`);
+      console.error(`   Windows PowerShell:`);
+      console.error(`   Get-NetTCPConnection -LocalPort ${PORT} -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\n`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
   });
 };
 
 start();
+

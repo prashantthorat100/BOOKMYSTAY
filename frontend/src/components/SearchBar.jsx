@@ -49,7 +49,7 @@ function SearchBar({ onSearch }) {
   return (
     <div className="card" style={{ marginBottom: 'var(--spacing-xl)' }}>
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-4" style={{ marginBottom: 'var(--spacing-md)', rowGap: 'var(--spacing-md)' }}>
+        <div className="grid grid-2" style={{ marginBottom: 'var(--spacing-md)', rowGap: 'var(--spacing-md)' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Location</label>
             <input
@@ -100,7 +100,7 @@ function SearchBar({ onSearch }) {
           </div>
         </div>
 
-        <div className="grid grid-4" style={{ marginBottom: 'var(--spacing-md)', rowGap: 'var(--spacing-md)' }}>
+        <div className="grid grid-2" style={{ marginBottom: 'var(--spacing-md)', rowGap: 'var(--spacing-md)' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Property Type</label>
             <select

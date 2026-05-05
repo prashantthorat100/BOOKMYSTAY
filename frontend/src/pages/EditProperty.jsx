@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -39,6 +39,12 @@ function EditProperty() {
   const [editingComparisonIndex, setEditingComparisonIndex] = useState(null);
   const [editingComparisonDraft, setEditingComparisonDraft] = useState({ platform: '', price: '', url: '' });
 
+  // Address search state (above map)
+  const [addressSearch, setAddressSearch] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [addressSuggestion, setAddressSuggestion] = useState('');
+  const debounceRef = useRef(null);
+
 
   const amenitiesList = [
     'WiFi', 'Kitchen', 'Parking', 'Air Conditioning', 'Heating',
@@ -75,6 +81,8 @@ function EditProperty() {
       });
       
       setExistingImages(Array.isArray(data.images) ? data.images : (typeof data.images === 'string' ? JSON.parse(data.images) : []));
+      // Pre-fill address search bar
+      if (data.address) setAddressSearch(data.address);
     } catch (err) {
       console.error(err);
       setError('Failed to load property data');
@@ -82,6 +90,72 @@ function EditProperty() {
       setLoading(false);
     }
   };
+
+  // ── Address search above the map ────────────────────────────────────────
+  const searchAddressOnMap = async (query) => {
+    const q = (query || addressSearch).trim();
+    if (!q) { setError('Please type an address to search.'); return; }
+    setSearchLoading(true);
+    setError('');
+    setAddressSuggestion('');
+    try {
+      const coords = await geocodeAddress(q);
+      if (!coords) {
+        setError('Address not found. Try adding city or country for better results.');
+        setSearchLoading(false);
+        return;
+      }
+      const lat = parseFloat(coords.lat);
+      const lng = parseFloat(coords.lng);
+      if (isNaN(lat) || isNaN(lng)) {
+        setError('Invalid coordinates returned.');
+        setSearchLoading(false);
+        return;
+      }
+      try {
+        const info = await reverseGeocode(lat, lng);
+        if (info) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            address: info.address || prev.address,
+            city: info.city || prev.city,
+            country: info.country || prev.country
+          }));
+          setAddressSuggestion(info.address || q);
+        } else {
+          setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+        }
+      } catch {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+      }
+      toast.success('📍 Location pinned on the map!');
+    } catch (err) {
+      setError(err.message || 'Address lookup failed.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleAddressSearchChange = (e) => {
+    const val = e.target.value;
+    setAddressSearch(val);
+    setAddressSuggestion('');
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (val.trim().length > 8) {
+      debounceRef.current = setTimeout(() => searchAddressOnMap(val), 1500);
+    }
+  };
+
+  const handleAddressSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      searchAddressOnMap(addressSearch);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const handleChange = (e) => {
     setFormData({
@@ -501,64 +575,113 @@ function EditProperty() {
             </div>
           )}
 
-          <h3 style={{ marginTop: 'var(--spacing-xl)', marginBottom: 'var(--spacing-lg)' }}>Location</h3>
-          <div className="form-group">
-            <label className="form-label">Address</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="form-input"
-                placeholder="Enter property address..."
-                style={{ flex: 1 }}
-              />
-              <button 
-                type="button" 
-                onClick={useCurrentLocation}
-                className="btn btn-secondary"
-                style={{ whiteSpace: 'nowrap' }}
-                disabled={locationLoading}
+          <h3 style={{ marginTop: 'var(--spacing-xl)', marginBottom: 'var(--spacing-sm)' }}>Location</h3>
+          <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-lg)', fontSize: '0.875rem' }}>
+            Search your property address below — the map will update automatically. You can also click the map to pin the exact spot.
+          </p>
+
+          {/* Address Search Bar (above map) */}
+          <div style={{
+            background: 'var(--neutral-50, #f8f9fa)',
+            border: '2px solid var(--primary, #e91e8c)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--spacing-lg)',
+            marginBottom: 'var(--spacing-md)'
+          }}>
+            <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: 'var(--spacing-sm)', display: 'block' }}>
+              🔍 Search Address to Locate on Map
+            </label>
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.1rem', pointerEvents: 'none', zIndex: 1 }}>📍</span>
+                <input
+                  type="text"
+                  value={addressSearch}
+                  onChange={handleAddressSearchChange}
+                  onKeyDown={handleAddressSearchKeyDown}
+                  className="form-input"
+                  placeholder="e.g. Taj Mahal, Agra, India  or  Marine Drive, Mumbai"
+                  style={{ paddingLeft: '2.5rem' }}
+                  autoComplete="off"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => searchAddressOnMap(addressSearch)}
+                className="btn btn-primary"
+                disabled={searchLoading || !addressSearch.trim()}
+                style={{ whiteSpace: 'nowrap', minWidth: '110px' }}
               >
-                {locationLoading ? '⌛ Locating...' : '📍 Use My Location'}
+                {searchLoading ? '⌛ Searching...' : '🗺️ Find on Map'}
               </button>
               <button
                 type="button"
-                onClick={() => geocodeAddressToCoordinates()}
-                className="btn btn-outline"
-                style={{ whiteSpace: 'nowrap' }}
+                onClick={useCurrentLocation}
+                className="btn btn-secondary"
                 disabled={locationLoading}
+                style={{ whiteSpace: 'nowrap' }}
               >
-                Find on map
+                {locationLoading ? '⌛...' : '📡 My Location'}
               </button>
             </div>
+            {addressSuggestion && (
+              <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.8rem', color: 'var(--success, #16a34a)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>✅</span>
+                <span>Pinned: <strong>{addressSuggestion}</strong></span>
+              </div>
+            )}
+            <p style={{ fontSize: '0.75rem', color: 'var(--neutral-400)', marginTop: 'var(--spacing-xs)' }}>
+              Press <kbd style={{ background: 'var(--neutral-200)', padding: '1px 5px', borderRadius: '3px' }}>Enter</kbd> or click "Find on Map" after typing.
+            </p>
+          </div>
 
-            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-              <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-sm)', fontSize: '0.875rem' }}>
-                You can also click on the map to set the exact location:
-              </p>
-              <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--neutral-200)' }}>
-                <Map 
-                  latitude={formData.latitude} 
-                  longitude={formData.longitude} 
-                  title={formData.title || 'Listing'}
-                  interactive
-                  height={300}
-                  onLocationSelect={(newPos) => {
+          {/* Map Preview */}
+          <div style={{
+            borderRadius: 'var(--radius-md)',
+            overflow: 'hidden',
+            border: (formData.latitude && formData.longitude) ? '2px solid var(--success, #16a34a)' : '2px dashed var(--neutral-300)',
+            marginBottom: 'var(--spacing-sm)'
+          }}>
+            <Map
+              latitude={formData.latitude}
+              longitude={formData.longitude}
+              title={formData.title || 'Listing'}
+              interactive
+              height={350}
+              onLocationSelect={(newPos) => {
+                setFormData(prev => ({ ...prev, latitude: newPos.lat, longitude: newPos.lng }));
+                reverseGeocode(newPos.lat, newPos.lng).then(info => {
+                  if (info) {
                     setFormData(prev => ({
                       ...prev,
-                      latitude: newPos.lat,
-                      longitude: newPos.lng
+                      address: info.address || prev.address,
+                      city: info.city || prev.city,
+                      country: info.country || prev.country
                     }));
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-sm)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--neutral-500)' }}>Lat: {formData.latitude || 'Not set'}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--neutral-500)' }}>Lng: {formData.longitude || 'Not set'}</div>
-              </div>
-            </div>
+                    setAddressSearch(info.address || '');
+                    setAddressSuggestion(info.address || '');
+                  }
+                }).catch(() => {});
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap' }}>
+            {(formData.latitude && formData.longitude) ? (
+              <>
+                <span style={{ fontSize: '0.75rem', color: 'var(--success, #16a34a)', fontWeight: 600 }}>✅ Location set</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--neutral-500)' }}>Lat: {Number(formData.latitude).toFixed(5)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--neutral-500)' }}>Lng: {Number(formData.longitude).toFixed(5)}</span>
+              </>
+            ) : (
+              <span style={{ fontSize: '0.75rem', color: 'var(--neutral-400)' }}>⚠️ No location set yet</span>
+            )}
+          </div>
+
+          {/* Address / City / Country fields */}
+          <div className="form-group">
+            <label className="form-label">Full Address</label>
+            <input type="text" name="address" value={formData.address} onChange={handleChange}
+              className="form-input" placeholder="123 Main Street, Apt 4B" />
           </div>
 
           <div className="grid grid-2">

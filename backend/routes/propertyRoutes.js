@@ -1,6 +1,17 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure uploads directory exists
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 import { authenticateToken, isHost } from '../middleware/authMiddleware.js';
 import Property from '../models/Property.js';
 import Booking from '../models/Booking.js';
@@ -12,7 +23,7 @@ const router = express.Router();
 // Configure multer for image uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname));
@@ -33,6 +44,19 @@ const upload = multer({
     }
   }
 });
+
+/**
+ * Wraps multer upload.array so multer errors (file type, size) produce a
+ * clean 400 JSON response instead of crashing the server.
+ */
+const multerUpload = (req, res, next) => {
+  upload.array('images', 10)(req, res, (err) => {
+    if (!err) return next();
+    // MulterError (e.g. file too large) or fileFilter error
+    const msg = err?.message || 'File upload error';
+    return res.status(400).json({ error: msg });
+  });
+};
 
 const normalizeProperty = (property, stats) => {
   const stat = stats?.get(String(property._id)) || { avg_rating: 0, review_count: 0 };
@@ -201,7 +225,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new property (host only)
-router.post('/', authenticateToken, isHost, upload.array('images', 10), async (req, res) => {
+router.post('/', authenticateToken, isHost, multerUpload, async (req, res) => {
   try {
     const {
       title, description, property_type, price_per_night,
@@ -210,8 +234,20 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
     } = req.body;
 
     // Validate required fields
-    if (!title || !property_type || !price_per_night || !city || !country || !latitude || !longitude) {
+    if (!title || !property_type || !price_per_night || !city || !country || latitude == null || longitude == null) {
       return res.status(400).json({ error: 'Missing required fields (title, type, price, city, country, latitude, longitude)' });
+    }
+
+    const parsedPrice = parseFloat(price_per_night);
+    const parsedLatitude = parseFloat(latitude);
+    const parsedLongitude = parseFloat(longitude);
+
+    if (
+      Number.isNaN(parsedPrice) ||
+      Number.isNaN(parsedLatitude) ||
+      Number.isNaN(parsedLongitude)
+    ) {
+      return res.status(400).json({ error: 'Invalid numeric values for price or coordinates' });
     }
 
     // Process uploaded images
@@ -234,15 +270,15 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
       title,
       description,
       property_type,
-      price_per_night: parseFloat(price_per_night),
+      price_per_night: parsedPrice,
       bedrooms: parseInt(bedrooms, 10) || 1,
       bathrooms: parseInt(bathrooms, 10) || 1,
       max_guests: parseInt(max_guests, 10) || 1,
       address,
       city,
       country,
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
       discount_percentage: discount_percentage ? parseFloat(discount_percentage) : 0,
       offer_title: offer_title || '',
       offer_valid_till: offer_valid_till || null,
@@ -257,12 +293,16 @@ router.post('/', authenticateToken, isHost, upload.array('images', 10), async (r
     });
   } catch (error) {
     console.error('Create property error:', error);
+    if (error?.name === 'ValidationError') {
+      const firstValidationError = Object.values(error.errors || {})[0]?.message;
+      return res.status(400).json({ error: firstValidationError || 'Invalid property data' });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Update property (host only)
-router.put('/:id', authenticateToken, isHost, upload.array('images', 10), async (req, res) => {
+router.put('/:id', authenticateToken, isHost, multerUpload, async (req, res) => {
   try {
     const property = await Property.findById(req.params.id).lean();
 

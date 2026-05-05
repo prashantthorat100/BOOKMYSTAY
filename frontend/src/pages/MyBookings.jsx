@@ -92,7 +92,7 @@ export default function MyBookings() {
 
   return (
     <div className="container" style={{ paddingTop: 'var(--spacing-xl)', paddingBottom: 'var(--spacing-2xl)', minHeight: '80vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
+      <div className="bookings-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
         <h1 style={{ margin: 0 }}>{title}</h1>
         <Link to="/" className="btn btn-outline">Explore stays</Link>
       </div>

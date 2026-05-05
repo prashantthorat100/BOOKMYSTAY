@@ -1,6 +1,6 @@
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-/** Libraries loaded on the Maps JS script (`places` requires Places API enabled — add when using Autocomplete). */
+/** Libraries loaded on the Maps JS script. */
 const DEFAULT_MAP_LIBRARIES = ['marker'];
 
 let authFailedGlobal = false;
@@ -18,29 +18,85 @@ export const hasGoogleMapsKey = () => Boolean(GOOGLE_MAPS_API_KEY);
 
 export const hasGoogleMapsAuthFailed = () => authFailedGlobal;
 
-/** Human-readable hint for Geocoding REST `status` values. */
-export const geocodeStatusMessage = (status, errorMessage) => {
-  const hints = {
-    REQUEST_DENIED:
-      'Geocoding was denied. Enable Geocoding API and Maps JavaScript API, turn on billing, and allow this site’s URL under Application restrictions.',
-    OVER_QUERY_LIMIT: 'Geocoding quota exceeded. Try again later or check Google Cloud quotas.',
-    INVALID_REQUEST: 'Invalid address request. Refine address, city, or country.',
-    UNKNOWN_ERROR: 'Google Geocoding temporarily failed. Retry in a moment.'
-  };
-  if (status === 'ZERO_RESULTS') return null;
-  return hints[status] || errorMessage || status || 'Geocoding failed.';
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// FREE Geocoding via OpenStreetMap Nominatim (no billing, no extra API key)
+// Google Maps JavaScript API (the visual map) is kept as-is.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const ensureGeocodeOkForResults = (data) => {
-  if (!data) throw new Error('No response from Geocoding API.');
-  if (data.status === 'OK' || data.status === 'ZERO_RESULTS') return;
-  const msg = geocodeStatusMessage(data.status, data.error_message);
-  throw new Error(msg || data.status);
+const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
+const NOMINATIM_HEADERS = {
+  // Nominatim requires a User-Agent identifying your app
+  'Accept-Language': 'en',
+  'User-Agent': 'BookMyStay/1.0 (contact@bookmystay.com)'
 };
 
 /**
- * Loads the Maps JavaScript API once. Extra `libraries` are merged into the script URL.
- * Resets internal state if the script fails to load so the next call can retry.
+ * Forward geocoding — converts an address string → { lat, lng }
+ * Uses OpenStreetMap Nominatim (free, no API key needed).
+ */
+export const geocodeAddress = async (query) => {
+  const cleaned = (query || '').trim();
+  if (!cleaned) return null;
+
+  const url =
+    `${NOMINATIM_BASE}/search?format=jsonv2&limit=1&q=${encodeURIComponent(cleaned)}`;
+
+  const response = await fetch(url, { headers: NOMINATIM_HEADERS });
+  if (!response.ok) {
+    throw new Error(`Nominatim search failed (HTTP ${response.status}). Check your internet connection.`);
+  }
+
+  const results = await response.json();
+  if (!Array.isArray(results) || results.length === 0) return null;
+
+  const first = results[0];
+  return {
+    lat: parseFloat(first.lat),
+    lng: parseFloat(first.lon)
+  };
+};
+
+/**
+ * Reverse geocoding — converts { lat, lng } → { address, city, country }
+ * Uses OpenStreetMap Nominatim (free, no API key needed).
+ */
+export const reverseGeocode = async (lat, lng) => {
+  const url =
+    `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+
+  const response = await fetch(url, { headers: NOMINATIM_HEADERS });
+  if (!response.ok) {
+    throw new Error(`Nominatim reverse geocode failed (HTTP ${response.status}).`);
+  }
+
+  const data = await response.json();
+  if (!data || data.error) return null;
+
+  const addr = data.address || {};
+  const city =
+    addr.city ||
+    addr.town ||
+    addr.village ||
+    addr.county ||
+    addr.state_district ||
+    '';
+  const country = addr.country || '';
+  const formattedAddress = data.display_name || '';
+
+  return {
+    address: formattedAddress,
+    city,
+    country
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google Maps JavaScript API loader (for the visual map — still uses your key)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Loads the Maps JavaScript API once.
+ * Only the map rendering uses the Google key; geocoding is now via Nominatim.
  */
 export const loadGoogleMaps = (libraries = []) => {
   if (window.google?.maps) {
@@ -51,7 +107,9 @@ export const loadGoogleMaps = (libraries = []) => {
   }
 
   if (!GOOGLE_MAPS_API_KEY) {
-    return Promise.reject(new Error('Google Maps API key missing (set VITE_GOOGLE_MAPS_API_KEY).'));
+    return Promise.reject(
+      new Error('Google Maps API key missing. Set VITE_GOOGLE_MAPS_API_KEY in frontend/.env')
+    );
   }
 
   if (googleMapsPromise) return googleMapsPromise;
@@ -74,51 +132,10 @@ export const loadGoogleMaps = (libraries = []) => {
     };
     script.onerror = () => {
       googleMapsPromise = null;
-      reject(new Error('Failed to load Google Maps JavaScript API (network or blocked script).'));
+      reject(new Error('Failed to load Google Maps (network error or blocked script).'));
     };
     document.head.appendChild(script);
   });
 
   return googleMapsPromise;
-};
-
-export const reverseGeocode = async (lat, lng) => {
-  if (!GOOGLE_MAPS_API_KEY) throw new Error('Google Maps API key missing');
-  const response = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`
-  );
-  const data = await response.json();
-  ensureGeocodeOkForResults(data);
-  const first = data?.results?.[0];
-  if (!first) return null;
-  const components = first.address_components || [];
-  const city =
-    components.find((c) => c.types.includes('locality'))?.long_name ||
-    components.find((c) => c.types.includes('administrative_area_level_2'))?.long_name ||
-    '';
-  const country = components.find((c) => c.types.includes('country'))?.long_name || '';
-
-  return {
-    address: first.formatted_address || '',
-    city,
-    country
-  };
-};
-
-export const geocodeAddress = async (query) => {
-  const cleaned = (query || '').trim();
-  if (!cleaned) return null;
-
-  if (!GOOGLE_MAPS_API_KEY) throw new Error('Google Maps API key missing');
-  const response = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cleaned)}&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`
-  );
-  const data = await response.json();
-  ensureGeocodeOkForResults(data);
-  const first = data?.results?.[0];
-  if (!first?.geometry?.location) return null;
-  return {
-    lat: first.geometry.location.lat,
-    lng: first.geometry.location.lng
-  };
 };

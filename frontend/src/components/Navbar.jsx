@@ -78,7 +78,7 @@ function Navbar() {
 
   return (
     <nav className="navbar" style={{ borderBottom: '1px solid var(--neutral-100)', padding: '1rem 0', position: 'sticky', top: 0, zIndex: 100, background: 'white' }}>
-      <div className="container" style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) auto minmax(120px, 1fr)', alignItems: 'center' }}>
+      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
         
         {/* 1. Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -135,6 +135,7 @@ function Navbar() {
 
           <Link
             to="/"
+            className="navbar-home-link"
             style={{
               display: 'flex',
               alignItems: 'center',

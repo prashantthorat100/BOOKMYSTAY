@@ -304,19 +304,19 @@ function PropertyDetail() {
   return (
     <div className="container" style={{ paddingTop: 'var(--spacing-xl)', paddingBottom: 'var(--spacing-2xl)' }}>
       {/* Image Slider Gallery */}
-      <section style={{ marginBottom: 'var(--spacing-2xl)', borderRadius: 'var(--radius-lg)', height: '380px', backgroundColor: 'var(--neutral-100)', overflow: 'hidden' }}>
+      <section className="detail-gallery" style={{ marginBottom: 'var(--spacing-2xl)', borderRadius: 'var(--radius-lg)', height: '380px', backgroundColor: 'var(--neutral-100)', overflow: 'hidden' }}>
         <ImageSlider images={images} />
       </section>
 
-      <div className="grid grid-3" style={{ gap: 'var(--spacing-2xl)', alignItems: 'start' }}>
+      <div className="detail-grid grid grid-3" style={{ gap: 'var(--spacing-2xl)', alignItems: 'start' }}>
         {/* Property Info */}
-        <div style={{ gridColumn: 'span 2' }}>
+        <div className="detail-main" style={{ gridColumn: 'span 2' }}>
           <h1 style={{ marginBottom: 'var(--spacing-sm)' }}>{property.title}</h1>
           <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-lg)' }}>
             📍 {property.address || ''} {property.city}, {property.country}
           </p>
 
-          <div style={{ display: 'flex', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)' }}>
+          <div className="detail-stats" style={{ display: 'flex', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)', flexWrap: 'wrap' }}>
             <span>🛏️ {property.bedrooms} Bedrooms</span>
             <span>🚿 {property.bathrooms} Bathrooms</span>
             <span>👥 {property.max_guests} Guests</span>
@@ -366,7 +366,7 @@ function PropertyDetail() {
           {amenities.length > 0 && (
             <div className="card" style={{ marginTop: 'var(--spacing-lg)' }}>
               <h3>Amenities</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
+              <div className="amenities-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
                 {amenities.map((amenity, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                     <span>✓</span> {amenity}
@@ -461,7 +461,7 @@ function PropertyDetail() {
         </div>
 
         {/* Booking Card */}
-        <div style={{ position: 'sticky', top: '100px' }}>
+        <div className="detail-sidebar" style={{ position: 'sticky', top: '100px' }}>
           <div className="card">
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
               {discountPercent > 0 ? (
